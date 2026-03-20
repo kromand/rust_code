@@ -1,0 +1,10 @@
+[package]
+name = "strategy_sym"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+rand = "0.9.0"
+load_file = "1.0.1"
+macroquad = "0.4.14"
+
