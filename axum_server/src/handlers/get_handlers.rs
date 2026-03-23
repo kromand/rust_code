@@ -1,4 +1,6 @@
 use crate::utils::ApiError;
+use crate::services;
+
 use axum::{Json, extract::Path};
 use serde::Serialize;
 
@@ -10,9 +12,9 @@ pub struct UserResponse {
 
 #[axum::debug_handler]
 pub async fn get_user(Path(user_id): Path<u64>) -> Result<Json<UserResponse>, ApiError> {
-    //let user = user_service.get(user_id).await;
+    let user = services::user_service::get_user_email(user_id).await?;
     Ok(Json(UserResponse {
         id: user_id,
-        username: "bla".to_string(),
+        username: user,
     }))
 }
