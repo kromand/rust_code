@@ -9,9 +9,28 @@ mod units;
 
 use crate::defines::*;
 use crate::draw::*;
+use crate::infrastructure::infstrt::*;
 use crate::map::terrain::*;
 use crate::units::Units::*;
-use crate::infrastructure::infstrt::*;
+
+pub struct Textures {
+    terrain: Box<TerrainTiles>,
+    units: Box<AnimateUnit>,
+    infrastructure: Box<InfrastuctureTextures>,
+}
+impl Textures {
+    pub async fn new() -> Result<Textures, macroquad::Error> {
+        let terr = load_terrain_textures().await?;
+        let un = AnimateUnit::new().await?;
+        let infr = InfrastuctureTextures::new().await?;
+
+        Ok(Textures {
+            terrain: terr,
+            units: un,
+            infrastructure: infr,
+        })
+    }
+}
 
 pub struct PositionTracker {
     position: GridTile,
@@ -59,6 +78,121 @@ impl PositionTracker {
         self.position
     }
 }
+pub fn process_unit_movement(
+    cur_position: &mut PositionTracker,
+    unit: &mut UnitInfo,
+    map: &mut TerrainGrid,
+) {
+    let new_pos = cur_position.get_new_position();
+    if cur_position.get_position() != new_pos
+        && cur_position.inbounds_check(new_pos)
+        && unit.allowed_move(map.get_titletype_for_cord(new_pos).unwrap())
+    {
+        let (move_successfull, mine_damage) = map.process_unit_movement(
+            unit.unit_id,
+            cur_position.get_position(),
+            new_pos,
+            Entity::Player,
+        );
+        if mine_damage {
+            unit.assess_damage(random::random_nums::generate(100));
+        }
+        if move_successfull {
+            cur_position.move_unit(new_pos);
+            map.unit_detection_chance(
+                new_pos,
+                unit.visibility_range,
+                unit.prob_to_detect_units,
+                Entity::Player,
+            );
+        }
+    }
+}
+
+pub async fn draw_visible_enemy_units(
+    map: &mut TerrainGrid,
+    enemy_units: &AI_units,
+    textures: &mut Textures,
+    cur_position: GridTile,
+) {
+    //draw visible AI units
+    for (_, unit_map) in &map.visible_units_per_tile {
+        for unit_id in unit_map {
+            if let Some(unit) = enemy_units.units.get(unit_id) {
+                paint_tile(
+                    unit.location,
+                    TILE_SIZE,
+                    textures
+                        .units
+                        .get_texture(unit.unit_type, TextTureType::Default),
+                    match unit.player_id {
+                        Entity::Player => false,
+                        Entity::AI => true,
+                    },
+                )
+                .await;
+
+                draw_health_bar(
+                    TILE_SIZE,
+                    unit.location,
+                    unit.get_health_bar(),
+                    Entity::AI,
+                    unit.location == cur_position,
+                )
+                .await;
+            }
+        }
+    }
+}
+
+pub async fn draw_player_unit(
+    unit: &mut UnitInfo,
+    textures: &mut Textures,
+    cur_position: GridTile,
+) {
+    //draw player unit
+    paint_tile(
+        cur_position,
+        TILE_SIZE,
+        textures
+            .units
+            .get_texture(unit.unit_type, TextTureType::Default),
+        match unit.player_id {
+            Entity::Player => false,
+            Entity::AI => true,
+        },
+    )
+    .await;
+
+    //draw player unit health
+    draw_health_bar(
+        TILE_SIZE,
+        cur_position,
+        unit.get_health_bar(),
+        Entity::Player,
+        false,
+    )
+    .await;
+}
+
+pub async fn draw_terrain(textures: &mut Textures, map: &mut TerrainGrid, tile_count: GridTile) {
+    //draw terrain
+    for y in 0..tile_count.0 {
+        for x in 0..tile_count.1 {
+            let t_tile = (y, x);
+            if let Some(t_type) = map.get_titletype_for_cord(t_tile) {
+                paint_tile(
+                    t_tile,
+                    TILE_SIZE,
+                    textures.terrain.get_tile_texture(t_type),
+                    false,
+                )
+                .await;
+            }
+        }
+    }
+}
+
 #[macroquad::main("Strategy")]
 async fn main() {
     let mut state = menu::GameState::Menu;
@@ -84,22 +218,10 @@ async fn main() {
 
     menu::initialize_menu(&menu_skin).await;
 
-    //load terrain textures
-    let terrain_textures = load_terrain_textures()
-        .await
-        .expect("Failed to load terrain textures");
+    //load textures: terrain, units and infrastructure
+    let mut textures = Textures::new().await.expect("Failed to load textures");
 
-    //load infracture assets
-    let mut infr_textures = load_default_infra_textures(20)
-        .await
-        .expect("Failed to load infrastructure textures");
-
-    //mutable since contains frame iterators, which will change
-    let mut unit_textures = AnimateUnit::new()
-        .await
-        .expect("Failed to load unit textures");
-
-    let tile_count: (i16, i16) = (
+    let tile_count: GridTile = (
         (screen_width() / TILE_SIZE.0) as i16,
         (screen_height() / TILE_SIZE.1) as i16,
     );
@@ -119,30 +241,8 @@ async fn main() {
             _ => {
                 clear_background(LIGHTGRAY);
 
-                let new_pos = cur_position.get_new_position();
-                if cur_position.get_position() != new_pos
-                    && cur_position.inbounds_check(new_pos)
-                    && unit.allowed_move(map.get_titletype_for_cord(new_pos).unwrap())
-                {
-                    let (move_successfull, mine_damage) = map.process_unit_movement(
-                        unit.unit_id,
-                        cur_position.get_position(),
-                        new_pos,
-                        Entity::Player,
-                    );
-                    if mine_damage {
-                        unit.assess_damage(random::random_nums::generate(100));
-                    }
-                    if move_successfull {
-                        cur_position.move_unit(new_pos);
-                        map.unit_detection_chance(
-                            new_pos,
-                            unit.visibility_range,
-                            unit.prob_to_detect_units,
-                            Entity::Player,
-                        );
-                    }
-                }
+                process_unit_movement(&mut cur_position, &mut unit, &mut map);
+
                 //draw a grid (TODO: macroquad has draw_grid too, explore using it)
                 draw::draw_grid(tile_count, TILE_SIZE).await;
 
@@ -150,77 +250,23 @@ async fn main() {
                     last_update = get_time();
                     cur_position.unlock_move();
                 }
-                //draw terrain
-                for y in 0..tile_count.0 {
-                    for x in 0..tile_count.1 {
-                        let t_tile = (y, x);
-                        if let Some(t_type) = map.get_titletype_for_cord(t_tile) {
-                            paint_tile(
-                                t_tile,
-                                TILE_SIZE,
-                                terrain_textures.get_tile_texture(t_type),
-                                false,
-                            )
-                            .await;
-                        }
-                    }
-                }
 
-                //draw player unit
-                paint_tile(
-                    cur_position.get_position(),
-                    TILE_SIZE,
-                    unit_textures.get_texture(unit.unit_type, TextTureType::Default),
-                    match unit.player_id {
-                        Entity::Player => false,
-                        Entity::AI => true,
-                    },
-                )
-                .await;
+                draw_terrain(&mut textures, &mut map , tile_count).await;
 
-                //draw player unit health
-                draw_health_bar(
-                    TILE_SIZE,
-                    cur_position.get_position(),
-                    unit.get_health_bar(),
-                    Entity::Player,
-                    false,
-                )
-                .await;
+                draw_player_unit(&mut unit, &mut textures, cur_position.get_position()).await;
 
-                //draw visible AI units
-                for (tile, unit_map) in &map.visible_units_per_tile {
-                    for unit_id in unit_map {
-                        if let Some(unit) = enemy_units.units.get(unit_id) {
-                            paint_tile(
-                                unit.location,
-                                TILE_SIZE,
-                                unit_textures.get_texture(unit.unit_type, TextTureType::Default),
-                                match unit.player_id {
-                                    Entity::Player => false,
-                                    Entity::AI => true,
-                                },
-                            )
-                            .await;
+                draw_visible_enemy_units(
+                    &mut map,
+                    &enemy_units,
+                    &mut textures,
+                    cur_position.get_position()).await;
 
-                            draw_health_bar(
-                                TILE_SIZE,
-                                unit.location,
-                                unit.get_health_bar(),
-                                Entity::AI,
-                                unit.location == cur_position.get_position(),
-                            )
-                            .await;
-                        }
-                    }
-                }
                 //draw infrastructure
                 paint_tile(
-                    (18,5),
+                    (18, 5),
                     TILE_SIZE,
-                    infr_textures.get_unit_texture(InfrastructureEnum::Fatory),
-                    false,
-                ).await;
+                    textures.infrastructure.get_infra_texture(InfrastructureEnum::Fatory),
+                    false).await;
             } //game state
         }
 

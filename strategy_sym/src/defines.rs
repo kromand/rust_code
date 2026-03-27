@@ -29,10 +29,10 @@ impl Entity {
 
 #[derive(Clone, Copy,Eq, PartialEq, Hash,Debug)]
 pub enum InfrastructureEnum {
-    Road,
-    Mines,
-    Bunkers,
     Fatory,
+    Mines,
+    Road,
+    Bunkers,
     Airfield,
     End,
 } 

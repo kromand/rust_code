@@ -3,6 +3,7 @@ mod utils;
 mod config;
 mod routes;
 mod services;
+mod tests;
 
 use std::sync::Arc;
 
@@ -12,6 +13,9 @@ struct AppState {
 
 #[tokio::main]
 async fn main() {
+    //TODO: add tracing/ tracing subscriber init for logging 
+    //for tokio metrics
+    //console_subscriber::init();
     let mut state = Arc::new(AppState {
        state:0, 
     });

@@ -236,7 +236,7 @@ pub mod Units {
                     unit_name: "1st scout".to_owned(),
                     unit_type: tp,
                     max_health: 50.0,
-                    health: 100.0,
+                    health: 50.0,
                     movement_rate: 1.0,
                     location: loc,
                     allowed_terrains: [true, false, true, true, true, true],
