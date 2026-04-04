@@ -1,50 +1,143 @@
-use crate::utils::ApiError;
 use crate::services;
+use crate::dto;
+use crate::utils::ApiError;
+use crate::infrastructure;
 
-use axum::{Json, extract::Path, response::IntoResponse};
-use serde::{Deserialize, Serialize};
+use std::sync::Arc;
+use tokio::sync::Mutex;
+use tracing::info;
+use axum::{Json,extract::{Path, State},response::IntoResponse,};
 
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct UserResponse {
-    pub id: u64,
-    pub user_name: String,
+//create/register user
+pub async fn register_user(state: State<Arc<Mutex<services::user_service::AppState>>>,
+    Json(new_user): Json<dto::user_dto::CreateUserDto>) -> Result<Json<dto::user_dto::UserResponse>, ApiError> 
+{
+    info!("register_user handler");
+
+    let mut m = state.lock().await;
+
+    let hash = infrastructure::authentication::hash_password(&new_user.password).unwrap();
+
+    if let Some(id) = m.db.add_user(new_user.username.clone(), new_user.email,hash) {
+        Ok(Json(dto::user_dto::UserResponse {
+            id,
+            user_name: new_user.username,
+        }))
+    } else {
+        Err(ApiError {
+            code: "not_found".to_owned(),
+            message: "user not found in test db".into(),
+        })
+    }
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct CreateUser {
-    #[serde(rename="userName")]
-    pub username:String,
+//this needs rework since no longer creating user
+pub async fn post_user(
+    State(state): State<Arc<Mutex<services::user_service::AppState>>>,
+    Json(new_user): Json<dto::user_dto::CreateUser>,
+) -> Result<Json<dto::user_dto::UserResponse>, ApiError> {
+    info!("post_user handler");
+
+    let mut m = state.lock().await;
+
+    if let Some(id) = m.db.add_user(new_user.username.clone(), new_user.email,"psswd".into()) {
+        Ok(Json(dto::user_dto::UserResponse {
+            id,
+            user_name: new_user.username,
+        }))
+    } else {
+        Err(ApiError {
+            code: "not_found".to_owned(),
+            message: "user not found in test db".into(),
+        })
+    }
 }
 
-pub async fn get_user(Path(user_id): Path<u64>) -> Result<Json<UserResponse>, ApiError> {
-    println!("get_user #1 {}", &user_id);
-    let user = services::user_service::get_user_email(user_id).await?;
-    Ok(Json(UserResponse {
-        id: user_id,
-        user_name: user,
-    }))
+//get user info
+pub async fn get_user(
+    State(state): State<Arc<Mutex<services::user_service::AppState>>>,
+        Path(user_id): Path<u64>,
+        ) -> Result<Json<dto::user_dto::UserResponse>, ApiError> {
+
+    info!("get_user #1 {}", &user_id);
+
+    let m = state.lock().await;
+
+    if let Some(val) = m.db.get_user(user_id) {
+        Ok(Json(dto::user_dto::UserResponse {
+            id: user_id,
+            user_name: val.user_name.clone(),
+        }))
+    } else {
+        Err(ApiError {
+            code: "not_found".to_owned(),
+            message: "user not found in test db".into(),
+        })
+    }
 }
 
-pub async fn get_api() -> Result<Json<UserResponse>, ApiError> {
+//change user info
+pub async fn put_user(
+    State(state): State<Arc<Mutex<services::user_service::AppState>>>,
+    Path(user_id): Path<u64>,
+) -> Result<Json<dto::user_dto::UserResponse>, ApiError> {
+
+    info!("put_user #1 {}", &user_id);
+
+    let m = state.lock().await;
+
+    if let Some(val) = m.db.get_user(user_id) {
+        Ok(Json(dto::user_dto::UserResponse {
+            id: user_id,
+            user_name: val.user_name.clone(),
+        }))
+    } else {
+        Err(ApiError {
+            code: "not_found".to_owned(),
+            message: "user not found in test db".into(),
+        })
+    }
+}
+
+//delete
+pub async fn delete_user(
+    State(state): State<Arc<Mutex<services::user_service::AppState>>>,
+    Path(user_id): Path<u64>,
+) -> Result<Json<dto::user_dto::UserResponse>, ApiError> {
+
+    info!("delete_user #1 {}", &user_id);
+
+    let mut m = state.lock().await;
+    if let Some(val) = m.db.remove_user(user_id) {
+        Ok(Json(dto::user_dto::UserResponse {
+            id: user_id,
+            user_name: val.user_name.clone(),
+        }))
+    } else {
+        Err(ApiError {
+            code: "not_found".to_owned(),
+            message: "user not found in test db".into(),
+        })
+    }
+}
+
+pub async fn get_api() -> Result<Json<dto::user_dto::UserResponse>, ApiError> {
     println!("get_api ");
-        Ok(Json(UserResponse {
+    Ok(Json(dto::user_dto::UserResponse {
         id: 1,
         user_name: "user".into(),
     }))
 }
 
-pub async fn create_user(Json(payload): Json<CreateUser>) -> impl IntoResponse
-{
+pub async fn create_user(Json(payload): Json<dto::user_dto::CreateUser>) -> impl IntoResponse {
     println!("create_user ");
 }
 
-pub async fn get_user_name(Json(payload): Json<CreateUser>) -> impl IntoResponse
-{
+pub async fn get_user_name(Json(payload): Json<dto::user_dto::CreateUser>) -> impl IntoResponse {
     println!("get_user_name ");
-    let user = UserResponse {
+    let user = dto::user_dto::UserResponse {
         id: 1,
-        user_name:"name".into(),
+        user_name: "name".into(),
     };
     Json(user)
 }
