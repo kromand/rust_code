@@ -1,6 +1,7 @@
 pub mod infstrt {
     use crate::defines::*;
     use macroquad::prelude::*;
+    use std::sync::Arc;
 
     pub struct TextureContainer {
         obj_txtr: Vec<Texture2D>,
@@ -83,11 +84,12 @@ pub mod infstrt {
     }
 
     pub struct InfrObject {
-        infr_type: InfrastructureEnum,
+        pub infr_type: InfrastructureEnum,
         count: usize,
-        location: GridTile,
-        owner: Entity,
+        pub location: GridTile,
+        pub owner: Entity,
         health: usize,
+        pub detected:bool,
     }
 
     impl InfrObject {
@@ -98,7 +100,28 @@ pub mod infstrt {
                 location: loc,
                 owner: own,
                 health: 100,
+                detected:false,
             }
+        }
+    }
+    pub struct InfrastructureContainer {
+        pub infr_objects: Vec<Arc<InfrObject>>,
+    }
+
+    impl InfrastructureContainer {
+        pub fn new() -> InfrastructureContainer {
+            InfrastructureContainer {
+                infr_objects: Vec::<Arc<InfrObject>>::new(),   
+            }
+        }
+        pub fn Add(self: &mut InfrastructureContainer, new_infr: Arc<InfrObject>) {
+            self.infr_objects.push(new_infr);
+        }
+        //add few test infra objects (mines, factory...)
+        pub fn Init(self: &mut InfrastructureContainer) {
+            //add sample object
+            self.infr_objects.push(Arc::new(InfrObject::new(InfrastructureEnum::Fatory, (18, 5), Entity::AI)));
+            self.infr_objects.push(Arc::new(InfrObject::new(InfrastructureEnum::Mines, (19, 5), Entity::AI)));
         }
     }
 }

@@ -193,6 +193,25 @@ pub async fn draw_terrain(textures: &mut Textures, map: &mut TerrainGrid, tile_c
     }
 }
 
+pub async fn draw_infrastructure(textures: &mut Textures, infra_vector: & InfrastructureContainer) {
+    
+    //draw infrastructure objects
+    for obj in infra_vector.infr_objects.iter() 
+    {
+        if obj.detected {
+            paint_tile(
+                obj.location,
+                TILE_SIZE,
+                textures
+                    .infrastructure
+                    .get_infra_texture(obj.infr_type),
+                false,
+            )
+            .await;
+        }
+    }
+}
+
 #[macroquad::main("Strategy")]
 async fn main() {
     let mut state = menu::GameState::Menu;
@@ -208,6 +227,14 @@ async fn main() {
         Entity::Player,
         (2, 3),
     );
+
+    //Add infrastructure object and add few test items
+    // add them to the map
+    let mut infra_vector = InfrastructureContainer::new();
+    infra_vector.Init();
+    for obj in infra_vector.infr_objects.iter()  {
+        map.add_infr(obj.clone());
+    }
 
     let mut enemy_units = AI_units::new();
     enemy_units.add_test_units(&mut id_gen);
@@ -251,7 +278,7 @@ async fn main() {
                     cur_position.unlock_move();
                 }
 
-                draw_terrain(&mut textures, &mut map , tile_count).await;
+                draw_terrain(&mut textures, &mut map, tile_count).await;
 
                 draw_player_unit(&mut unit, &mut textures, cur_position.get_position()).await;
 
@@ -259,14 +286,11 @@ async fn main() {
                     &mut map,
                     &enemy_units,
                     &mut textures,
-                    cur_position.get_position()).await;
+                    cur_position.get_position(),
+                )
+                .await;
 
-                //draw infrastructure
-                paint_tile(
-                    (18, 5),
-                    TILE_SIZE,
-                    textures.infrastructure.get_infra_texture(InfrastructureEnum::Fatory),
-                    false).await;
+                draw_infrastructure(&mut textures,& infra_vector).await;
             } //game state
         }
 

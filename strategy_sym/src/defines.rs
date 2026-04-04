@@ -31,8 +31,9 @@ impl Entity {
 pub enum InfrastructureEnum {
     Fatory,
     Mines,
-    Road,
     Bunkers,
+    DefensiveObstacles,
+    Road,
     Airfield,
     End,
 } 

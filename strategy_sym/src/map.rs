@@ -7,6 +7,7 @@ pub mod terrain {
     use crate::random::random_nums;
     use std::fs::File;
     use std::io::{BufRead, BufReader};
+    use std::sync::Arc;
 
     use macroquad::prelude::*;
     struct TileInfo {
@@ -14,7 +15,7 @@ pub mod terrain {
         location: GridTile,
         visible_units: [HashSet<usize>; 2],
         hidden_units: [HashSet<usize>; 2],
-        infrastruct: HashMap<InfrastructureEnum, infstrt::InfrObject>,
+        infrastruct: HashMap<InfrastructureEnum, Arc<infstrt::InfrObject>>,
     }
     pub struct TerrainGrid {
         map: Vec<Vec<TileInfo>>,
@@ -37,7 +38,7 @@ pub mod terrain {
                         location: (y as i16, x as i16),
                         visible_units: [HashSet::<usize>::new(), HashSet::<usize>::new()],
                         hidden_units: [HashSet::<usize>::new(), HashSet::<usize>::new()],
-                        infrastruct: HashMap::<InfrastructureEnum, infstrt::InfrObject>::new(),
+                        infrastruct: HashMap::<InfrastructureEnum, Arc<infstrt::InfrObject>>::new(),
                     })
                     .collect();
                 m.push(row);
@@ -122,8 +123,12 @@ pub mod terrain {
                 t.visible_units[ent as usize].insert(unit_id);
             }
         }
-        pub fn has_mines(tile: &TileInfo) -> bool {
-            tile.infrastruct.contains_key(&InfrastructureEnum::Mines)
+        pub fn has_mines(tile: &mut TileInfo) -> bool {
+            if let Some(infr) = tile.infrastruct.get_mut(&InfrastructureEnum::Mines){
+                //infr.detected = true;
+                return true;
+            }
+            false
         }
         pub fn process_unit_movement(
             self: &mut TerrainGrid,
@@ -234,6 +239,11 @@ pub mod terrain {
         ) {
             for r in 1..=radius {
                 self.scan_around(tile, r as i16, detect_possiblity / r, ent);
+            }
+        }
+        pub fn add_infr(self:&mut TerrainGrid, new_infr: Arc<infstrt::InfrObject>) {
+            if let Some(tile_info) = self.get_title_for_cord(new_infr.location) {
+                tile_info.infrastruct.insert(new_infr.infr_type, new_infr);
             }
         }
     }
