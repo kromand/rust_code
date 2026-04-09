@@ -7,6 +7,7 @@ mod utils;
 mod dto;
 mod infrastructure;
 
+
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use std::fs::OpenOptions;
@@ -14,6 +15,15 @@ use std::fs::OpenOptions;
 use tracing::{info,warn, error};
 use tracing_subscriber::{fmt,EnvFilter};
 
+use crate::infrastructure::config::Config;
+
+/*
+TODO:
+1. Login authentication
+2. jwt token passing and credentials check
+3. https and redirects
+4. Paging
+*/
 
 pub fn init_logging() {
     let debug_file = OpenOptions::new()
@@ -33,22 +43,27 @@ pub fn init_logging() {
 #[tokio::main]
 async fn main() {
     init_logging();
-    info!("************ App Start *************************");
+    
+    let config = Config::from_env();
+
+    info!("****************************************** APPLICATION START *********************************************");
 
     //for tokio metrics
     //console_subscriber::init();
     let state;
-    match infrastructure::db::init_db_pool("postgres://test:symbioza@192.168.1.14:5432/postgres").await {
+    
+    match infrastructure::db::init_db_pool(&config.database_url).await {
         Ok(db_pool) => state = Arc::new(Mutex::new(services::user_service::AppState {
             db: services::user_service::DatabaseSim::new(),
-            database_con_pool: db_pool
+            database_con_pool: db_pool,
+            config,
         })),
         Err(e) => {
             error!("Failed to initialize db connection pool: {}",e);
             return;
         },
     }
-    info!("Db connection(s) initialized, staring rest server");
+    info!("Postgres connection(s) initialized, staring rest server");
     // build our application with a single route
     let app = routes::get_routes::get_user_route(state);
 

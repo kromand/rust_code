@@ -15,6 +15,8 @@ pub fn get_user_route(state: Arc<Mutex<services::user_service::AppState>>) -> Ro
     Router::new()
         .route("/register", post(handlers::get_handlers::register_user))
         .with_state(state.clone())
+        .route("/login", post(handlers::get_handlers::login_user))
+        .with_state(state.clone())
         .route("/user", post(handlers::get_handlers::post_user))
         .with_state(state.clone())
         .route("/users/{id}", 

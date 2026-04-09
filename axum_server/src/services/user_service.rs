@@ -1,4 +1,5 @@
 use crate::utils::ApiError;
+use crate::Config;
 use std::collections::HashMap;
 use sqlx::postgres::PgPoolOptions;
 
@@ -22,44 +23,52 @@ impl UserEntry {
 }
 #[derive(Clone)]
 pub struct DatabaseSim {
-    database: HashMap<u64, UserEntry>,
+    userdata: HashMap<u64, UserEntry>,
     user_id: u64,
 }
 
 impl DatabaseSim {
     pub fn new() -> DatabaseSim {
         DatabaseSim {
-            database: HashMap::<u64, UserEntry>::new(),
-            user_id: 0,
+            userdata: HashMap::<u64, UserEntry>::new(),
+            user_id: 2,
         }
     }
     pub fn add_user(self: &mut DatabaseSim, name: String, e: String, p:String) -> Option<u64> {
         self.user_id += 1;
         let id = self.user_id;
 
-        if self.database.contains_key(&id) {
+        if self.userdata.contains_key(&id) {
             return None;
         }
-        self.database.insert(id, UserEntry::new(id, name, e,p));
+        self.userdata.insert(id, UserEntry::new(id, name, e,p));
         Some(id)
     }
     pub fn get_user(self: &DatabaseSim, id: u64) -> Option<UserEntry> {
-        if let Some(val) = self.database.get(&id) {
+        if let Some(val) = self.userdata.get(&id) {
             return Some((*val).clone());
         }
 
         None
     }
     pub fn remove_user(self: &mut DatabaseSim, id: u64) -> Option<UserEntry> {
-        self.database.remove(&id)
+        self.userdata.remove(&id)
     }
     pub fn change_user(self: &mut DatabaseSim, id: u64, name: String, e: String) -> bool {
-        if let Some(val) = self.database.get_mut(&id) {
+        if let Some(val) = self.userdata.get_mut(&id) {
             val.user_email = e;
             val.user_name = name;
             return true;
         }
         false
+    }
+    pub fn get_user_hashed_password(self: &mut DatabaseSim, id: u64) -> Option<String>
+    {
+        if let Some(val) = self.userdata.get(&id) {
+
+            return Some(val.password.clone());
+        }
+        None
     }
 }
 
@@ -78,4 +87,5 @@ pub async fn get_user_email(user_id: u64) -> Result<String, ApiError> {
 pub struct AppState {
     pub db: DatabaseSim,
     pub database_con_pool: sqlx::PgPool,
+    pub config: Config,
 }

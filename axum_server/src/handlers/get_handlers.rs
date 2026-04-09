@@ -8,7 +8,9 @@ use tokio::sync::Mutex;
 use tracing::info;
 use axum::{Json,extract::{Path, State},response::IntoResponse,};
 
-//create/register user
+/*
+Register user: hash login credentials
+*/
 pub async fn register_user(state: State<Arc<Mutex<services::user_service::AppState>>>,
     Json(new_user): Json<dto::user_dto::CreateUserDto>) -> Result<Json<dto::user_dto::UserResponse>, ApiError> 
 {
@@ -30,8 +32,36 @@ pub async fn register_user(state: State<Arc<Mutex<services::user_service::AppSta
         })
     }
 }
+/*
+Login: Check credentials and issue jwt token
+*/
+pub async fn login_user(state: State<Arc<Mutex<services::user_service::AppState>>>,
+    Json(new_user): Json<dto::user_dto::LoginUserDto>) -> Result<Json<dto::user_dto::UserTokenResponse>, ApiError> 
+{
+    info!("login_user handler");
+    let mut m = state.lock().await;
+    if let Some(val) = m.db.get_user_hashed_password(new_user.id) {
+        if infrastructure::authentication::verify_password(&val, &new_user.password) {
+            
+            return Ok(Json(dto::user_dto::UserTokenResponse {
+                id: new_user.id,
+                jwttoken: infrastructure::authentication::generate_jwt(new_user.id, &m.config.jwt_secret),
+            }));
+        }
+        Err(ApiError {
+            code: "unauthorized".to_owned(),
+            message: "Incorrect password for this user".into(),
+        })
+    }
+    else {
+        Err(ApiError {
+            code: "not_found".to_owned(),
+            message: "user not found in test db".into(),
+        })
+    }
+}
 
-//this needs rework since no longer creating user
+//create new user data entry
 pub async fn post_user(
     State(state): State<Arc<Mutex<services::user_service::AppState>>>,
     Json(new_user): Json<dto::user_dto::CreateUser>,
@@ -40,15 +70,29 @@ pub async fn post_user(
 
     let mut m = state.lock().await;
 
-    if let Some(id) = m.db.add_user(new_user.username.clone(), new_user.email,"psswd".into()) {
-        Ok(Json(dto::user_dto::UserResponse {
-            id,
-            user_name: new_user.username,
-        }))
+    if let Some(id) = m.db.add_user(new_user.username.clone(), new_user.email.clone(),"psswd".into()) {
+
+        match infrastructure::db::create_user_db(&m.database_con_pool, id as i32, &new_user).await
+        {
+            Ok(_) => {
+                Ok(Json(dto::user_dto::UserResponse {
+                    id,
+                    user_name: new_user.username,
+                }))
+            }
+            Err(e) => {
+                info!("post_user db insert error");
+                Err(ApiError {
+                    code: "not_found".to_owned(),
+                    message: e.to_string(),
+                })
+            }
+        }
+        
     } else {
         Err(ApiError {
             code: "not_found".to_owned(),
-            message: "user not found in test db".into(),
+            message: "user already exists".into(),
         })
     }
 }
