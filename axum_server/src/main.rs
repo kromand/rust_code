@@ -19,10 +19,8 @@ use crate::infrastructure::config::Config;
 
 /*
 TODO:
-1. Login authentication
-2. jwt token passing and credentials check
-3. https and redirects
-4. Paging
+1. https and redirects
+2. Paging
 */
 
 pub fn init_logging() {

@@ -1,3 +1,4 @@
+use crate::infrastructure::authentication;
 use crate::services;
 use crate::dto;
 use crate::utils::ApiError;
@@ -40,12 +41,15 @@ pub async fn login_user(state: State<Arc<Mutex<services::user_service::AppState>
 {
     info!("login_user handler");
     let mut m = state.lock().await;
+
     if let Some(val) = m.db.get_user_hashed_password(new_user.id) {
         if infrastructure::authentication::verify_password(&val, &new_user.password) {
-            
+
+            let roles = vec!["Write".to_string(),"Read".to_string()];
+
             return Ok(Json(dto::user_dto::UserTokenResponse {
                 id: new_user.id,
-                jwttoken: infrastructure::authentication::generate_jwt(new_user.id, &m.config.jwt_secret),
+                jwttoken: infrastructure::authentication::generate_jwt(new_user.id, &m.config.jwt_secret,roles),
             }));
         }
         Err(ApiError {
@@ -62,10 +66,14 @@ pub async fn login_user(state: State<Arc<Mutex<services::user_service::AppState>
 }
 
 //create new user data entry
+#[axum::debug_handler]
 pub async fn post_user(
     State(state): State<Arc<Mutex<services::user_service::AppState>>>,
-    Json(new_user): Json<dto::user_dto::CreateUser>,
+        cl: authentication::Claims,
+        Json(new_user): Json<dto::user_dto::CreateUser>,
+
 ) -> Result<Json<dto::user_dto::UserResponse>, ApiError> {
+
     info!("post_user handler");
 
     let mut m = state.lock().await;
@@ -87,8 +95,7 @@ pub async fn post_user(
                     message: e.to_string(),
                 })
             }
-        }
-        
+        }    
     } else {
         Err(ApiError {
             code: "not_found".to_owned(),
@@ -100,6 +107,7 @@ pub async fn post_user(
 //get user info
 pub async fn get_user(
     State(state): State<Arc<Mutex<services::user_service::AppState>>>,
+        cl: authentication::Claims,
         Path(user_id): Path<u64>,
         ) -> Result<Json<dto::user_dto::UserResponse>, ApiError> {
 
@@ -123,6 +131,7 @@ pub async fn get_user(
 //change user info
 pub async fn put_user(
     State(state): State<Arc<Mutex<services::user_service::AppState>>>,
+    cl: authentication::Claims,
     Path(user_id): Path<u64>,
 ) -> Result<Json<dto::user_dto::UserResponse>, ApiError> {
 
@@ -146,6 +155,7 @@ pub async fn put_user(
 //delete
 pub async fn delete_user(
     State(state): State<Arc<Mutex<services::user_service::AppState>>>,
+    cl: authentication::Claims,
     Path(user_id): Path<u64>,
 ) -> Result<Json<dto::user_dto::UserResponse>, ApiError> {
 
