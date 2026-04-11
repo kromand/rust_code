@@ -35,7 +35,7 @@ pub mod terrain {
                     .enumerate()
                     .map(|(x, c)| TileInfo {
                         terrain_type: TerrainGrid::char_code_terrain_enum(c),
-                        location: (y as i16, x as i16),
+                        location: (y as u16, x as u16),
                         visible_units: [HashSet::<usize>::new(), HashSet::<usize>::new()],
                         hidden_units: [HashSet::<usize>::new(), HashSet::<usize>::new()],
                         infrastruct: HashMap::<InfrastructureEnum, Arc<infstrt::InfrObject>>::new(),
@@ -59,6 +59,17 @@ pub mod terrain {
             }
             size
         }
+
+        pub fn get_owned_units_count(self: &TerrainGrid, tile: GridTile, ent: Entity) -> usize {
+            let mut size = 0;
+            if (tile.1 as usize) < self.map.len()
+                && (tile.0 as usize) < self.map[tile.1 as usize].len()
+            {
+                size = self.map[tile.1 as usize][tile.0 as usize].visible_units[ent as usize].len();
+            }
+            size
+        }
+
         pub fn get_title_for_cord(self: &mut TerrainGrid, tile: GridTile) -> Option<&mut TileInfo> {
             if (tile.1 as usize) < self.map.len()
                 && (tile.0 as usize) < self.map[tile.1 as usize].len()
@@ -190,7 +201,7 @@ pub mod terrain {
         pub fn scan_around(
             self: &mut TerrainGrid,
             center: GridTile,
-            distance: i16,
+            distance: u16,
             detect_possiblity: usize,
             player_type: Entity,
         ) {
@@ -199,8 +210,8 @@ pub mod terrain {
             } else {
                 0
             };
-            let max_y = if center.1 + distance >= (self.map.len() - 1) as i16 {
-                (self.map.len() - 1) as i16
+            let max_y = if center.1 + distance >= (self.map.len() - 1) as u16 {
+                (self.map.len() - 1) as u16
             } else {
                 center.1 + distance
             };
@@ -209,8 +220,8 @@ pub mod terrain {
             } else {
                 0
             };
-            let max_x = if center.0 + distance > (self.map[center.1 as usize].len() - 1) as i16 {
-                (self.map.len() - 1) as i16
+            let max_x = if center.0 + distance > (self.map[center.1 as usize].len() - 1) as u16 {
+                (self.map.len() - 1) as u16
             } else {
                 center.0 + distance
             };
@@ -238,7 +249,7 @@ pub mod terrain {
             ent: Entity,
         ) {
             for r in 1..=radius {
-                self.scan_around(tile, r as i16, detect_possiblity / r, ent);
+                self.scan_around(tile, r as u16, detect_possiblity / r, ent);
             }
         }
         pub fn add_infr(self:&mut TerrainGrid, new_infr: Arc<infstrt::InfrObject>) {

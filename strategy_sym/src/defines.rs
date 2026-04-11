@@ -1,5 +1,6 @@
 pub const TILE_SIZE: (f32, f32) = (40.0, 40.0);
-pub type GridTile = (i16, i16);
+pub type GridTile = (u16, u16);
+pub type PixelOffset = (f32, f32);
 
 #[derive(Clone, Copy)]
 pub enum TerrainTilesEnum {

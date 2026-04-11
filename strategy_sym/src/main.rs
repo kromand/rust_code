@@ -6,6 +6,7 @@ mod map;
 mod menu;
 mod random;
 mod units;
+mod utils;
 
 use crate::defines::*;
 use crate::draw::*;
@@ -32,6 +33,71 @@ impl Textures {
     }
 }
 
+pub struct MouseTracker {
+    start_cursor_position: Option<PixelOffset>,
+    end_cursor_position: Option<PixelOffset>,
+    tile_size: PixelOffset,
+}
+
+impl MouseTracker {
+    pub fn new(t_size: PixelOffset) -> MouseTracker {
+        MouseTracker {
+            end_cursor_position: None,
+            tile_size: t_size,
+            start_cursor_position: None,
+        }
+    }
+    pub fn process_mouse_action(self: &mut MouseTracker) {
+        let (mouse_x, mouse_y) = mouse_position();
+
+        if is_mouse_button_down(MouseButton::Left) {
+            if self.start_cursor_position.is_none() {
+                self.end_cursor_position = None;
+                self.start_cursor_position = Some((mouse_x, mouse_y));
+            }
+        } else {
+            if self.end_cursor_position.is_none() {
+                self.end_cursor_position = Some((mouse_x, mouse_y));
+            } else if self.end_cursor_position.is_some() {
+                self.end_cursor_position = None;
+                self.start_cursor_position = None;
+            }
+        }
+
+        if is_mouse_button_down(MouseButton::Right) {}
+        if is_mouse_button_down(MouseButton::Middle) {}
+    }
+    pub fn is_dragging(self: &MouseTracker) -> bool {
+        is_mouse_button_down(MouseButton::Left)
+            && self.start_cursor_position.is_some()
+            && self.end_cursor_position.is_none()
+    }
+    pub fn get_cursor_pointed_tile(self: &MouseTracker) -> GridTile {
+        let (mouse_x, mouse_y) = mouse_position();
+        utils::conv::pixel_offset_to_grid((mouse_x, mouse_y))
+    }
+    pub fn get_new_tile_if_moved(self: &MouseTracker) -> Option<GridTile> {
+        if self.start_cursor_position.is_some() && self.end_cursor_position.is_some() {
+            let (mouse_x, mouse_y) = mouse_position();
+            return Some(utils::conv::pixel_offset_to_grid((mouse_x, mouse_y)));
+        }
+        None
+    }
+
+    pub fn get_click_drag_draw_offset(self: &MouseTracker) -> PixelOffset {
+        let cur_pos: PixelOffset = mouse_position();
+
+        // this method should be called only when LMB was clicked and held, on calling unwrap on start_cursor_position is safe
+        let original_tile = utils::conv::pixel_offset_to_grid(self.start_cursor_position.unwrap());
+        let original_tile_offset = utils::conv::pixel_offset_of_gridtile(original_tile);
+        let delta: PixelOffset = (
+            self.start_cursor_position.unwrap().0 - original_tile_offset.0,
+            self.start_cursor_position.unwrap().1 - original_tile_offset.1,
+        );
+
+        utils::conv::zero_floor_sub(cur_pos, delta)
+    }
+}
 pub struct PositionTracker {
     position: GridTile,
     bounds: GridTile,
@@ -50,21 +116,17 @@ impl PositionTracker {
         let mut new_pos: GridTile = self.position;
         if is_key_down(KeyCode::Right) {
             new_pos.0 += 1;
-        } else if is_key_down(KeyCode::Left) {
+        } else if is_key_down(KeyCode::Left) && new_pos.0 > 0 {
             new_pos.0 -= 1;
         } else if is_key_down(KeyCode::Down) {
             new_pos.1 += 1;
-        } else if is_key_down(KeyCode::Up) {
+        } else if is_key_down(KeyCode::Up) && new_pos.1 > 0 {
             new_pos.1 -= 1;
         }
         new_pos
     }
     pub fn inbounds_check(self: &PositionTracker, new_pos: GridTile) -> bool {
-        new_pos.0 < self.bounds.0
-            && new_pos.0 >= 0
-            && new_pos.1 < self.bounds.1
-            && new_pos.1 >= 0
-            && !self.move_lock
+        new_pos.0 < self.bounds.0 && new_pos.1 < self.bounds.1 && !self.move_lock
     }
 
     pub fn move_unit(self: &mut PositionTracker, new_pos: GridTile) {
@@ -193,18 +255,14 @@ pub async fn draw_terrain(textures: &mut Textures, map: &mut TerrainGrid, tile_c
     }
 }
 
-pub async fn draw_infrastructure(textures: &mut Textures, infra_vector: & InfrastructureContainer) {
-    
+pub async fn draw_infrastructure(textures: &mut Textures, infra_vector: &InfrastructureContainer) {
     //draw infrastructure objects
-    for obj in infra_vector.infr_objects.iter() 
-    {
+    for obj in infra_vector.infr_objects.iter() {
         if obj.detected {
             paint_tile(
                 obj.location,
                 TILE_SIZE,
-                textures
-                    .infrastructure
-                    .get_infra_texture(obj.infr_type),
+                textures.infrastructure.get_infra_texture(obj.infr_type),
                 false,
             )
             .await;
@@ -232,7 +290,7 @@ async fn main() {
     // add them to the map
     let mut infra_vector = InfrastructureContainer::new();
     infra_vector.Init();
-    for obj in infra_vector.infr_objects.iter()  {
+    for obj in infra_vector.infr_objects.iter() {
         map.add_infr(obj.clone());
     }
 
@@ -249,11 +307,12 @@ async fn main() {
     let mut textures = Textures::new().await.expect("Failed to load textures");
 
     let tile_count: GridTile = (
-        (screen_width() / TILE_SIZE.0) as i16,
-        (screen_height() / TILE_SIZE.1) as i16,
+        (screen_width() / TILE_SIZE.0) as u16,
+        (screen_height() / TILE_SIZE.1) as u16,
     );
 
     let mut cur_position = PositionTracker::new((2, 3), tile_count);
+    let mouse = MouseTracker::new(TILE_SIZE);
     let speed = 0.6;
     let mut last_update = get_time();
 
@@ -268,6 +327,7 @@ async fn main() {
             _ => {
                 clear_background(LIGHTGRAY);
 
+                //MouseTracker.process_mouse_action();
                 process_unit_movement(&mut cur_position, &mut unit, &mut map);
 
                 //draw a grid (TODO: macroquad has draw_grid too, explore using it)
@@ -290,7 +350,7 @@ async fn main() {
                 )
                 .await;
 
-                draw_infrastructure(&mut textures,& infra_vector).await;
+                draw_infrastructure(&mut textures, &infra_vector).await;
             } //game state
         }
 
