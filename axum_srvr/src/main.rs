@@ -7,15 +7,21 @@ mod utils;
 mod dto;
 mod infrastructure;
 
-
 use std::sync::Arc;
+use std::{fs::{OpenOptions}};
+use std::net::SocketAddr;
+
+use anyhow::Ok;
 use tokio::sync::Mutex;
-use std::fs::OpenOptions;
 
 use tracing::{info,warn, error};
 use tracing_subscriber::{fmt,EnvFilter};
 
 use crate::infrastructure::config::Config;
+use axum_server::tls_rustls::RustlsConfig;
+/*
+all code is heavily based on examples from book Rust rest API deveopment
+*/
 
 /*
 TODO:
@@ -39,7 +45,14 @@ pub fn init_logging() {
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> anyhow::Result<()>{
+
+    let tls_config = RustlsConfig::from_pem_file(
+            "./cert.pem",
+            "./key.pem",
+        )
+        .await?;
+
     init_logging();
     
     let config = Config::from_env();
@@ -51,23 +64,26 @@ async fn main() {
     let state;
     
     match infrastructure::db::init_db_pool(&config.database_url).await {
-        Ok(db_pool) => state = Arc::new(Mutex::new(services::user_service::AppState {
-            db: services::user_service::DatabaseSim::new(),
-            database_con_pool: db_pool,
-            config,
-        })),
+        std::result::Result::Ok(db_pool) => {
+            state = Arc::new(Mutex::new(services::user_service::AppState {
+                db: services::user_service::DatabaseSim::new(),
+                database_con_pool: db_pool,
+                config,}));
+        },
         Err(e) => {
             error!("Failed to initialize db connection pool: {}",e);
-            return;
+            return Ok(());
         },
-    }
+    };
     info!("Postgres connection(s) initialized, staring rest server");
     // build our application with a single route
     let app = routes::get_routes::get_user_route(state);
 
-    // run our app with hyper, listening globally on port 3000
-    let listener = tokio::net::TcpListener::bind(config::LOOPBACK_IP)
-        .await
-        .unwrap();
-    axum::serve(listener, app).await.unwrap();
+    let addr = SocketAddr::from(([127, 0, 0, 1], 443));
+
+    axum_server::bind_rustls(addr, tls_config)
+        .serve(app.into_make_service())
+        .await?;
+
+    Ok(())
 }
