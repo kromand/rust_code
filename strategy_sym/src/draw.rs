@@ -22,6 +22,27 @@ pub async fn paint_tile(tile: GridTile, size: (f32, f32), texture: &Texture2D,fl
     );
 }
 
+pub async fn paint_tile_at_pixel(pix_location: PixelOffset, size: (f32, f32), texture: &Texture2D,flip:bool) {
+    let param = DrawTextureParams {
+        dest_size: Some(Vec2 {
+            x: size.0,
+            y: size.1,
+        }),
+        source: None,
+        rotation: 0.0,
+        flip_x: flip,
+        flip_y: false,
+        pivot: None,
+    };
+    draw_texture_ex(
+        texture,
+        pix_location.0,
+        pix_location.1,
+        LIGHTGRAY,
+        param,
+    );
+}
+
 pub async fn draw_grid(tile_count: GridTile, tile_size: (f32, f32)) {
     //draw horizontal
     for i in 1..tile_count.1 {

@@ -24,3 +24,29 @@ pub mod conv {
         res
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    pub fn test_zero_floor_sub() {
+        assert_eq!(conv::zero_floor_sub((5.0, 5.0), (3.0, 3.0)), (2.0, 2.0));
+        assert_eq!(conv::zero_floor_sub((3.0, 3.0), (5.0, 5.0)), (0.0, 0.0));
+        assert_eq!(conv::zero_floor_sub((5.0, 3.0), (3.0, 5.0)), (2.0, 0.0));
+        assert_eq!(conv::zero_floor_sub((3.0, 5.0), (5.0, 3.0)), (0.0, 2.0));
+    }
+
+    #[test]
+    pub fn test_pixel_offset_to_grid() {
+        assert_eq!(conv::pixel_offset_to_grid((0.0, 0.0)), (0, 0));
+        assert_eq!(conv::pixel_offset_to_grid((39.9, 39.9)), (0, 0));
+        assert_eq!(conv::pixel_offset_to_grid((40.0, 40.0)), (1, 1));
+        assert_eq!(conv::pixel_offset_to_grid((80.0, 120.0)), (2, 3));
+    }
+    #[test]
+    pub fn test_pixel_offset_of_gridtile() {
+        assert_eq!(conv::pixel_offset_of_gridtile((0, 0)), (0.0, 0.0));
+        assert_eq!(conv::pixel_offset_of_gridtile((1, 1)), (40.0, 40.0));
+        assert_eq!(conv::pixel_offset_of_gridtile((2, 3)), (80.0, 120.0));
+    }
+}

@@ -100,7 +100,7 @@ pub mod infstrt {
                 location: loc,
                 owner: own,
                 health: 100,
-                detected:false,
+                detected:true,
             }
         }
     }

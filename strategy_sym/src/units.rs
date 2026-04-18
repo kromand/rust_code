@@ -1,12 +1,13 @@
-
-
 pub mod Units {
     use crate::defines::*;
     use macroquad::prelude::*;
-    use std::{collections::HashMap, sync::atomic::{AtomicUsize, Ordering}};
+    use std::{
+        collections::HashMap,
+        sync::atomic::{AtomicUsize, Ordering},
+    };
 
     #[derive(Debug)]
-    pub enum TextTureType {
+    pub enum TextureType {
         Default,
         Moving,
         Destruction,
@@ -18,14 +19,19 @@ pub mod Units {
         destruction: UnitTileTextures,
     }
     impl AnimateUnit {
-        pub async fn load_default_textures(frame_count:usize, frame_repeat_rate: usize) -> Result<UnitTileTextures, macroquad::Error> {
-            
-            let mut vct = Vec::<Box<dyn Iterator<Item=usize>>>::new();
+        pub async fn load_default_textures(
+            frame_count: usize,
+            frame_repeat_rate: usize,
+        ) -> Result<UnitTileTextures, macroquad::Error> {
+            let mut vct = Vec::<Box<dyn Iterator<Item = usize>>>::new();
 
             for _ in 0..(UnitTilesEnum::End as usize) {
-                vct.push(Box::new(UnitTileTextures::get_repeat_seq_it(frame_count,frame_repeat_rate)));
+                vct.push(Box::new(UnitTileTextures::get_repeat_seq_it(
+                    frame_count,
+                    frame_repeat_rate,
+                )));
             }
-            
+
             Ok(UnitTileTextures {
                 tank_txtr: vec![load_texture("assets/tank_pix.png").await?],
                 rocket_arty_txtr: vec![load_texture("assets/himars.png").await?],
@@ -37,7 +43,10 @@ pub mod Units {
                 frame_itr: vct,
             })
         }
-        pub async fn load_movement_textures(frame_count:usize, frame_repeat_rate: usize) -> Result<UnitTileTextures, macroquad::Error> {
+        pub async fn load_movement_textures(
+            frame_count: usize,
+            frame_repeat_rate: usize,
+        ) -> Result<UnitTileTextures, macroquad::Error> {
             Ok(UnitTileTextures {
                 tank_txtr: vec![load_texture("assets/tank_pix.png").await?],
                 rocket_arty_txtr: vec![load_texture("assets/himars.png").await?],
@@ -46,10 +55,16 @@ pub mod Units {
                 sam_txtr: vec![load_texture("assets/sam.png").await?],
                 infantry_txtr: vec![load_texture("assets/infantry_pix.png").await?],
                 scout_txtr: vec![load_texture("assets/scouts.png").await?],
-                frame_itr: vec![Box::new(UnitTileTextures::get_repeat_seq_it(frame_count,frame_repeat_rate))],
+                frame_itr: vec![Box::new(UnitTileTextures::get_repeat_seq_it(
+                    frame_count,
+                    frame_repeat_rate,
+                ))],
             })
         }
-        pub async fn load_destruction_textures(frame_count:usize, frame_repeat_rate: usize) -> Result<UnitTileTextures, macroquad::Error> {
+        pub async fn load_destruction_textures(
+            frame_count: usize,
+            frame_repeat_rate: usize,
+        ) -> Result<UnitTileTextures, macroquad::Error> {
             Ok(UnitTileTextures {
                 tank_txtr: vec![load_texture("assets/tank_pix.png").await?],
                 rocket_arty_txtr: vec![load_texture("assets/himars.png").await?],
@@ -58,24 +73,32 @@ pub mod Units {
                 sam_txtr: vec![load_texture("assets/sam.png").await?],
                 infantry_txtr: vec![load_texture("assets/infantry_pix.png").await?],
                 scout_txtr: vec![load_texture("assets/scouts.png").await?],
-                frame_itr: vec![Box::new(UnitTileTextures::get_repeat_seq_it(frame_count,frame_repeat_rate))],
+                frame_itr: vec![Box::new(UnitTileTextures::get_repeat_seq_it(
+                    frame_count,
+                    frame_repeat_rate,
+                ))],
             })
-        }    
-        pub async fn new() ->Result<Box<AnimateUnit>, macroquad::Error>{
+        }
+        pub async fn new() -> Result<Box<AnimateUnit>, macroquad::Error> {
             Ok(Box::new(AnimateUnit {
-                default: AnimateUnit::load_default_textures(1,1).await?,
-                movement: AnimateUnit::load_movement_textures(1,1).await?,
-                destruction: AnimateUnit::load_destruction_textures(1,1).await?,
+                default: AnimateUnit::load_default_textures(1, 1).await?,
+                movement: AnimateUnit::load_movement_textures(1, 1).await?,
+                destruction: AnimateUnit::load_destruction_textures(1, 1).await?,
             }))
         }
-        pub fn get_texture(self: &mut AnimateUnit, unit_type: UnitTilesEnum, texture_type: TextTureType) -> &Texture2D {
+        pub fn get_texture(
+            self: &mut AnimateUnit,
+            unit_type: UnitTilesEnum,
+            texture_type: TextureType,
+        ) -> &Texture2D {
             match texture_type {
-                TextTureType::Default => self.default.get_unit_texture(unit_type),
-                TextTureType::Moving => &self.movement.get_unit_texture(unit_type),
-                TextTureType::Destruction => &self.destruction.get_unit_texture(unit_type),
+                TextureType::Default => self.default.get_unit_texture(unit_type),
+                TextureType::Moving => &self.movement.get_unit_texture(unit_type),
+                TextureType::Destruction => &self.destruction.get_unit_texture(unit_type),
                 _ => {
                     dbg!(texture_type);
-                    unreachable!()},
+                    unreachable!()
+                }
             }
         }
     }
@@ -88,17 +111,21 @@ pub mod Units {
         sam_txtr: Vec<Texture2D>,
         infantry_txtr: Vec<Texture2D>,
         scout_txtr: Vec<Texture2D>,
-        frame_itr:  Vec<Box<dyn Iterator<Item=usize>>>,
+        frame_itr: Vec<Box<dyn Iterator<Item = usize>>>,
     }
     impl UnitTileTextures {
-        pub fn get_repeat_seq_it(len:usize, repeat:usize) -> impl Iterator<Item=usize> {
+        pub fn get_repeat_seq_it(len: usize, repeat: usize) -> impl Iterator<Item = usize> {
             //to collect into a vector:
             // (0..len).flat_map(|n| std::iter::repeat(n).take(repeat)).collect::<Vec<usize>>()
-            (0..len.to_owned()).flat_map(move |n| std::iter::repeat(n).take(repeat)).cycle()
+            (0..len.to_owned())
+                .flat_map(move |n| std::iter::repeat(n).take(repeat))
+                .cycle()
         }
 
-        pub fn get_unit_texture(self: &mut UnitTileTextures, unit_type: UnitTilesEnum) -> &Texture2D {
-            
+        pub fn get_unit_texture(
+            self: &mut UnitTileTextures,
+            unit_type: UnitTilesEnum,
+        ) -> &Texture2D {
             //calling unwrap here since any frame sequence should be cyclical, infinte
             //TODO: since death sequence will non-cyclical, need to implement that as well
             //TODO: the iterator might need to move to unit info since each animation will be separate per unit
@@ -114,18 +141,19 @@ pub mod Units {
                 UnitTilesEnum::AttackHeli => &self.attack_heli_txtr[frame_index],
                 _ => {
                     dbg!(unit_type);
-                    unreachable!()},
+                    unreachable!()
+                }
             }
         }
     }
 
     pub struct UnitId {
-        next_id:AtomicUsize,
+        next_id: AtomicUsize,
     }
     impl UnitId {
         pub fn new() -> UnitId {
             UnitId {
-               next_id:  AtomicUsize::new(0),
+                next_id: AtomicUsize::new(0),
             }
         }
         pub fn get_new(self: &mut UnitId) -> usize {
@@ -134,7 +162,7 @@ pub mod Units {
     }
     pub struct UnitInfo {
         pub unit_id: usize,
-        pub player_id:Entity,
+        pub player_id: Entity,
         unit_name: String,
         pub unit_type: UnitTilesEnum,
         max_health: f32,
@@ -149,7 +177,7 @@ pub mod Units {
         fn default() -> Self {
             UnitInfo {
                 unit_id: 1,
-                player_id:Entity::AI,
+                player_id: Entity::AI,
                 unit_name: "martian riders".to_owned(),
                 unit_type: UnitTilesEnum::End,
                 max_health: 100.0,
@@ -157,17 +185,22 @@ pub mod Units {
                 movement_rate: 2.0,
                 location: (0, 0),
                 allowed_terrains: [false; TerrainTilesEnum::End as usize],
-                visibility_range:1,
-                prob_to_detect_units:50,
+                visibility_range: 1,
+                prob_to_detect_units: 50,
             }
         }
     }
     impl UnitInfo {
-        pub fn new(tp: UnitTilesEnum, id_gen: &mut UnitId, p_id: Entity, loc: GridTile) -> UnitInfo {
+        pub fn new(
+            tp: UnitTilesEnum,
+            id_gen: &mut UnitId,
+            p_id: Entity,
+            loc: GridTile,
+        ) -> UnitInfo {
             match tp {
                 UnitTilesEnum::Tank => UnitInfo {
                     unit_id: id_gen.get_new(),
-                    player_id:p_id,
+                    player_id: p_id,
                     unit_name: "1st armored".to_owned(),
                     unit_type: tp,
                     max_health: 200.0,
@@ -175,12 +208,12 @@ pub mod Units {
                     movement_rate: 2.0,
                     location: loc,
                     allowed_terrains: [true, false, false, false, true, true],
-                    visibility_range:1,
-                    prob_to_detect_units:50,
+                    visibility_range: 1,
+                    prob_to_detect_units: 50,
                 },
                 UnitTilesEnum::APC => UnitInfo {
                     unit_id: id_gen.get_new(),
-                    player_id:p_id,
+                    player_id: p_id,
                     unit_name: "1st APC".to_owned(),
                     unit_type: tp,
                     max_health: 200.0,
@@ -188,12 +221,12 @@ pub mod Units {
                     movement_rate: 2.0,
                     location: loc,
                     allowed_terrains: [true, false, true, false, true, true],
-                    visibility_range:1,
-                    prob_to_detect_units:50,
+                    visibility_range: 1,
+                    prob_to_detect_units: 50,
                 },
                 UnitTilesEnum::AttackHeli => UnitInfo {
                     unit_id: id_gen.get_new(),
-                    player_id:p_id,
+                    player_id: p_id,
                     unit_name: "1st attack helicopter".to_owned(),
                     unit_type: tp,
                     max_health: 200.0,
@@ -201,12 +234,12 @@ pub mod Units {
                     movement_rate: 4.0,
                     location: loc,
                     allowed_terrains: [true, true, true, true, true, true],
-                    visibility_range:3,
-                    prob_to_detect_units:90,
+                    visibility_range: 3,
+                    prob_to_detect_units: 90,
                 },
                 UnitTilesEnum::SAM => UnitInfo {
                     unit_id: id_gen.get_new(),
-                    player_id:p_id,
+                    player_id: p_id,
                     unit_name: "SAM".to_owned(),
                     unit_type: tp,
                     max_health: 200.0,
@@ -214,12 +247,12 @@ pub mod Units {
                     movement_rate: 4.0,
                     location: loc,
                     allowed_terrains: [true, false, false, false, true, true],
-                    visibility_range:0,
-                    prob_to_detect_units:5,
+                    visibility_range: 0,
+                    prob_to_detect_units: 5,
                 },
                 UnitTilesEnum::Infantry => UnitInfo {
                     unit_id: id_gen.get_new(),
-                    player_id:p_id,
+                    player_id: p_id,
                     unit_name: "1st infantry".to_owned(),
                     unit_type: tp,
                     max_health: 100.0,
@@ -227,12 +260,12 @@ pub mod Units {
                     movement_rate: 1.0,
                     location: loc,
                     allowed_terrains: [true, false, false, true, true, true],
-                    visibility_range:1,
-                    prob_to_detect_units:70,
+                    visibility_range: 1,
+                    prob_to_detect_units: 70,
                 },
                 UnitTilesEnum::Scout => UnitInfo {
                     unit_id: id_gen.get_new(),
-                    player_id:p_id,
+                    player_id: p_id,
                     unit_name: "1st scout".to_owned(),
                     unit_type: tp,
                     max_health: 50.0,
@@ -240,103 +273,207 @@ pub mod Units {
                     movement_rate: 1.0,
                     location: loc,
                     allowed_terrains: [true, false, true, true, true, true],
-                    visibility_range:2,
-                    prob_to_detect_units:70,
+                    visibility_range: 2,
+                    prob_to_detect_units: 70,
                 },
                 _ => UnitInfo::default(),
             }
         }
-        pub fn allowed_move(self:&UnitInfo, new_title:TerrainTilesEnum) -> bool {
+        pub fn allowed_move(self: &UnitInfo, new_title: TerrainTilesEnum) -> bool {
             self.allowed_terrains[new_title as usize]
         }
-        pub fn takes_damage(self: &mut UnitInfo, dmg: f32) -> bool{
-            if  dmg < self.health {
+        pub fn takes_damage(self: &mut UnitInfo, dmg: f32) -> bool {
+            if dmg < self.health {
                 self.health -= dmg;
                 false
-            }
-            else {
+            } else {
                 self.health = 0.0;
                 true
             }
         }
-        pub fn get_health_bar(self:  &UnitInfo) -> f32 {
+        pub fn get_health_bar(self: &UnitInfo) -> f32 {
             self.health / self.max_health
         }
-        pub fn assess_damage(self:  &mut UnitInfo, prob:usize) -> bool {
-
-            if prob <= 15
-            {
+        pub fn assess_damage(self: &mut UnitInfo, prob: usize) -> bool {
+            if prob <= 15 {
                 return self.takes_damage(0.3 * self.max_health);
             }
-            false   
+            false
         }
-        
     }
 
     pub struct AI_units {
-        pub units: HashMap<usize, UnitInfo>
+        pub units: HashMap<usize, UnitInfo>,
     }
     impl AI_units {
         pub fn new() -> AI_units {
             AI_units {
-                units: HashMap::<usize, UnitInfo>::new()
+                units: HashMap::<usize, UnitInfo>::new(),
             }
         }
-        pub fn add_test_units(self: &mut AI_units,id_gen: &mut UnitId) {
+        pub fn add_test_units(self: &mut AI_units, id_gen: &mut UnitId) {
             //add sample AI infantry
-            let mut new_unit = UnitInfo::new(UnitTilesEnum::Scout,id_gen,Entity::AI, (15,7));
+            let mut new_unit = UnitInfo::new(UnitTilesEnum::Scout, id_gen, Entity::AI, (15, 7));
             self.units.insert(new_unit.unit_id, new_unit);
 
             // add AI tank
-            new_unit = UnitInfo::new(UnitTilesEnum::Tank,id_gen,Entity::AI, (16,6));
+            new_unit = UnitInfo::new(UnitTilesEnum::Tank, id_gen, Entity::AI, (16, 6));
             self.units.insert(new_unit.unit_id, new_unit);
 
             // add AI SAM
-            new_unit = UnitInfo::new(UnitTilesEnum::SAM,id_gen,Entity::AI, (17,5));
+            new_unit = UnitInfo::new(UnitTilesEnum::SAM, id_gen, Entity::AI, (17, 5));
             self.units.insert(new_unit.unit_id, new_unit);
         }
     }
+
+    pub struct PlayerUnits {
+        pub units_by_tile: HashMap<GridTile, HashMap<usize, UnitInfo>>,
+    }
+
+    impl PlayerUnits {
+        pub fn new() -> PlayerUnits {
+            PlayerUnits {
+                units_by_tile: HashMap::<GridTile, HashMap<usize, UnitInfo>>::new(),
+            }
+        }
+
+        pub fn add_unit(&mut self, unit: UnitInfo) {
+            self.units_by_tile
+                .entry(unit.location)
+                .or_default()
+                .insert(unit.unit_id, unit);
+        }
+
+        pub fn add_unit_at(
+            &mut self,
+            unit_type: UnitTilesEnum,
+            id_gen: &mut UnitId,
+            player_id: Entity,
+            location: GridTile,
+        ) -> usize {
+            let unit = UnitInfo::new(unit_type, id_gen, player_id, location);
+            let id = unit.unit_id;
+            self.add_unit(unit);
+            id
+        }
+
+        pub fn move_unit(&mut self, start_tile: GridTile, unit_id: usize, new_tile: GridTile) -> bool {
+            if let Some(units_at_tile) = self.units_by_tile.get_mut(&start_tile) {
+                if let Some( unit) = units_at_tile.remove(&unit_id) {
+
+                    self.units_by_tile
+                        .entry(new_tile)
+                        .or_default()
+                        .insert(unit_id, unit);
+                    return true;
+                }
+            }
+
+            false
+        }
+
+        pub fn get_units_at(&self, tile: GridTile) -> Option<&HashMap<usize, UnitInfo>> {
+            self.units_by_tile.get(&tile)
+        }
+    }
+
     /*
-    pub enum UnitTilesEnum {
-    Tank,
-    Infantry,
-    Scout,
-    Engineers,
-    APC,
-    RocketArty,
-    Artillery,
-    AttackHeli,
-    TransportHeli,
-    SAM,
-    End,
-} 
-    
-     */
+        pub enum UnitTilesEnum {
+        Tank,
+        Infantry,
+        Scout,
+        Engineers,
+        APC,
+        RocketArty,
+        Artillery,
+        AttackHeli,
+        TransportHeli,
+        SAM,
+        End,
+    }
+
+         */
     pub struct DamageAssessment {
         damage_matrix: Vec<Vec<f32>>,
     }
-    
+
     impl DamageAssessment {
         pub fn new() -> DamageAssessment {
             let mut dmg_vec = Vec::<Vec<f32>>::new();
             dmg_vec.reserve(UnitTilesEnum::End as usize);
 
-            dmg_vec[UnitTilesEnum::Tank as usize] = vec!{1.0,2.0,4.0,2.0,1.5,100.0,100.0,0.05,0.2,100.0};
-            dmg_vec[UnitTilesEnum::Infantry as usize] = vec!{0.3,2.0,4.0,2.0,1.5,100.0,100.0,0.05,0.2,100.0};
-            dmg_vec[UnitTilesEnum::Scout as usize] = vec!{1.0,2.0,4.0,2.0,1.5,100.0,100.0,0.05,0.2,100.0};
-            dmg_vec[UnitTilesEnum::Engineers as usize] = vec!{1.0,2.0,4.0,2.0,1.5,100.0,100.0,0.05,0.2,100.0};
+            dmg_vec[UnitTilesEnum::Tank as usize] =
+                vec![1.0, 2.0, 4.0, 2.0, 1.5, 100.0, 100.0, 0.05, 0.2, 100.0];
+            dmg_vec[UnitTilesEnum::Infantry as usize] =
+                vec![0.3, 2.0, 4.0, 2.0, 1.5, 100.0, 100.0, 0.05, 0.2, 100.0];
+            dmg_vec[UnitTilesEnum::Scout as usize] =
+                vec![1.0, 2.0, 4.0, 2.0, 1.5, 100.0, 100.0, 0.05, 0.2, 100.0];
+            dmg_vec[UnitTilesEnum::Engineers as usize] =
+                vec![1.0, 2.0, 4.0, 2.0, 1.5, 100.0, 100.0, 0.05, 0.2, 100.0];
 
-            dmg_vec[UnitTilesEnum::APC as usize] = vec!{1.0,2.0,4.0,2.0,1.5,100.0,100.0,0.05,0.2,100.0};
-            dmg_vec[UnitTilesEnum::RocketArty as usize] = vec!{1.0,2.0,4.0,2.0,1.5,100.0,100.0,0.05,0.2,100.0};
-            dmg_vec[UnitTilesEnum::Artillery as usize] = vec!{1.0,2.0,4.0,2.0,1.5,100.0,100.0,0.05,0.2,100.0};
-            dmg_vec[UnitTilesEnum::AttackHeli as usize] = vec!{1.0,2.0,4.0,2.0,1.5,100.0,100.0,0.05,0.2,100.0};
+            dmg_vec[UnitTilesEnum::APC as usize] =
+                vec![1.0, 2.0, 4.0, 2.0, 1.5, 100.0, 100.0, 0.05, 0.2, 100.0];
+            dmg_vec[UnitTilesEnum::RocketArty as usize] =
+                vec![1.0, 2.0, 4.0, 2.0, 1.5, 100.0, 100.0, 0.05, 0.2, 100.0];
+            dmg_vec[UnitTilesEnum::Artillery as usize] =
+                vec![1.0, 2.0, 4.0, 2.0, 1.5, 100.0, 100.0, 0.05, 0.2, 100.0];
+            dmg_vec[UnitTilesEnum::AttackHeli as usize] =
+                vec![1.0, 2.0, 4.0, 2.0, 1.5, 100.0, 100.0, 0.05, 0.2, 100.0];
 
-            dmg_vec[UnitTilesEnum::TransportHeli as usize] = vec!{1.0,2.0,4.0,2.0,1.5,100.0,100.0,0.05,0.2,100.0};
-            dmg_vec[UnitTilesEnum::SAM as usize] = vec!{1.0,2.0,4.0,2.0,1.5,100.0,100.0,0.05,0.2,100.0};
+            dmg_vec[UnitTilesEnum::TransportHeli as usize] =
+                vec![1.0, 2.0, 4.0, 2.0, 1.5, 100.0, 100.0, 0.05, 0.2, 100.0];
+            dmg_vec[UnitTilesEnum::SAM as usize] =
+                vec![1.0, 2.0, 4.0, 2.0, 1.5, 100.0, 100.0, 0.05, 0.2, 100.0];
 
             DamageAssessment {
-                damage_matrix: dmg_vec
+                damage_matrix: dmg_vec,
             }
+        }
+    }
+        #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn add_unit_at_inserts_unit_into_tile_map() {
+            let mut id_gen = UnitId::new();
+            let mut player_units = PlayerUnits::new();
+
+            let unit_id = player_units.add_unit_at(UnitTilesEnum::Tank, &mut id_gen, Entity::Player, (2, 3));
+
+            let tile_units = player_units.get_units_at((2, 3)).expect("Tile should exist");
+            assert_eq!(tile_units.len(), 1);
+            assert!(tile_units.contains_key(&unit_id));
+        }
+
+        #[test]
+        fn move_unit_moves_unit_between_tiles() {
+            let mut id_gen = UnitId::new();
+            let mut player_units = PlayerUnits::new();
+
+            let unit_id = player_units.add_unit_at(UnitTilesEnum::Tank, &mut id_gen, Entity::Player, (2, 3));
+            let moved = player_units.move_unit((2, 3), unit_id, (3, 4));
+
+            assert!(moved, "move_unit should succeed when start_tile contains the unit");
+            assert!(player_units.get_units_at((2, 3)).is_none(), "old tile should be empty after move");
+
+            let target_units = player_units.get_units_at((3, 4)).expect("Target tile should exist");
+            assert_eq!(target_units.len(), 1);
+            let moved_unit = target_units.get(&unit_id).expect("Moved unit should be present");
+            assert_eq!(moved_unit.location, (3, 4));
+        }
+
+        #[test]
+        fn move_unit_fails_if_start_tile_is_wrong() {
+            let mut id_gen = UnitId::new();
+            let mut player_units = PlayerUnits::new();
+
+            let unit_id = player_units.add_unit_at(UnitTilesEnum::Tank, &mut id_gen, Entity::Player, (2, 3));
+            let moved = player_units.move_unit((1, 1), unit_id, (3, 4));
+
+            assert!(!moved, "move_unit should fail when the unit is not present at start_tile");
+            let original_units = player_units.get_units_at((2, 3)).expect("Original tile should still exist");
+            assert!(original_units.contains_key(&unit_id));
         }
     }
 }

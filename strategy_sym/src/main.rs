@@ -36,24 +36,29 @@ impl Textures {
 pub struct MouseTracker {
     start_cursor_position: Option<PixelOffset>,
     end_cursor_position: Option<PixelOffset>,
-    tile_size: PixelOffset,
+    unitid: usize,
 }
 
 impl MouseTracker {
-    pub fn new(t_size: PixelOffset) -> MouseTracker {
+    pub fn new() -> MouseTracker {
         MouseTracker {
             end_cursor_position: None,
-            tile_size: t_size,
             start_cursor_position: None,
+            unitid: 0,
         }
     }
-    pub fn process_mouse_action(self: &mut MouseTracker) {
+    pub fn process_mouse_action(self: &mut MouseTracker, units: &PlayerUnits) {
         let (mouse_x, mouse_y) = mouse_position();
+        let mouse_tile = self.get_cursor_pointed_tile();
 
         if is_mouse_button_down(MouseButton::Left) {
-            if self.start_cursor_position.is_none() {
-                self.end_cursor_position = None;
-                self.start_cursor_position = Some((mouse_x, mouse_y));
+            if let Some(u) = units.get_units_at(mouse_tile) {
+                if !u.is_empty() && self.start_cursor_position.is_none() {
+                    //get first unit id from the tile and set it as selected, also set start cursor position for dragging
+                    self.unitid = *u.iter().next().unwrap().0;
+                    self.end_cursor_position = None;
+                    self.start_cursor_position = Some((mouse_x, mouse_y));
+                }
             }
         } else {
             if self.end_cursor_position.is_none() {
@@ -67,6 +72,11 @@ impl MouseTracker {
         if is_mouse_button_down(MouseButton::Right) {}
         if is_mouse_button_down(MouseButton::Middle) {}
     }
+
+    pub fn get_selected_unit_id(self: &MouseTracker) -> usize {
+        self.unitid
+    }
+
     pub fn is_dragging(self: &MouseTracker) -> bool {
         is_mouse_button_down(MouseButton::Left)
             && self.start_cursor_position.is_some()
@@ -80,6 +90,13 @@ impl MouseTracker {
         if self.start_cursor_position.is_some() && self.end_cursor_position.is_some() {
             let (mouse_x, mouse_y) = mouse_position();
             return Some(utils::conv::pixel_offset_to_grid((mouse_x, mouse_y)));
+        }
+        None
+    }
+
+    pub fn get_start_cursor_tile(self: &MouseTracker) -> Option<GridTile> {
+        if let Some(pos) = self.start_cursor_position {
+            return Some(utils::conv::pixel_offset_to_grid(pos));
         }
         None
     }
@@ -98,69 +115,16 @@ impl MouseTracker {
         utils::conv::zero_floor_sub(cur_pos, delta)
     }
 }
-pub struct PositionTracker {
-    position: GridTile,
-    bounds: GridTile,
-    move_lock: bool,
-}
 
-impl PositionTracker {
-    pub fn new(start: GridTile, bnds: GridTile) -> PositionTracker {
-        PositionTracker {
-            position: start,
-            bounds: bnds,
-            move_lock: false,
-        }
-    }
-    pub fn get_new_position(self: &mut PositionTracker) -> GridTile {
-        let mut new_pos: GridTile = self.position;
-        if is_key_down(KeyCode::Right) {
-            new_pos.0 += 1;
-        } else if is_key_down(KeyCode::Left) && new_pos.0 > 0 {
-            new_pos.0 -= 1;
-        } else if is_key_down(KeyCode::Down) {
-            new_pos.1 += 1;
-        } else if is_key_down(KeyCode::Up) && new_pos.1 > 0 {
-            new_pos.1 -= 1;
-        }
-        new_pos
-    }
-    pub fn inbounds_check(self: &PositionTracker, new_pos: GridTile) -> bool {
-        new_pos.0 < self.bounds.0 && new_pos.1 < self.bounds.1 && !self.move_lock
-    }
-
-    pub fn move_unit(self: &mut PositionTracker, new_pos: GridTile) {
-        self.position = new_pos;
-        self.move_lock = true;
-    }
-    pub fn unlock_move(self: &mut PositionTracker) {
-        self.move_lock = false;
-    }
-    pub fn get_position(self: &mut PositionTracker) -> GridTile {
-        self.position
-    }
-}
-pub fn process_unit_movement(
-    cur_position: &mut PositionTracker,
-    unit: &mut UnitInfo,
-    map: &mut TerrainGrid,
-) {
-    let new_pos = cur_position.get_new_position();
-    if cur_position.get_position() != new_pos
-        && cur_position.inbounds_check(new_pos)
-        && unit.allowed_move(map.get_titletype_for_cord(new_pos).unwrap())
-    {
-        let (move_successfull, mine_damage) = map.process_unit_movement(
-            unit.unit_id,
-            cur_position.get_position(),
-            new_pos,
-            Entity::Player,
-        );
+pub fn process_unit_movement(new_pos: GridTile, unit: &mut UnitInfo, map: &mut TerrainGrid) {
+    if unit.location != new_pos && unit.allowed_move(map.get_titletype_for_cord(new_pos).unwrap()) {
+        let (move_successfull, mine_damage) =
+            map.process_unit_movement(unit.unit_id, unit.location, new_pos, Entity::Player);
         if mine_damage {
             unit.assess_damage(random::random_nums::generate(100));
         }
         if move_successfull {
-            cur_position.move_unit(new_pos);
+            unit.location = new_pos;
             map.unit_detection_chance(
                 new_pos,
                 unit.visibility_range,
@@ -186,7 +150,7 @@ pub async fn draw_visible_enemy_units(
                     TILE_SIZE,
                     textures
                         .units
-                        .get_texture(unit.unit_type, TextTureType::Default),
+                        .get_texture(unit.unit_type, TextureType::Default),
                     match unit.player_id {
                         Entity::Player => false,
                         Entity::AI => true,
@@ -207,18 +171,14 @@ pub async fn draw_visible_enemy_units(
     }
 }
 
-pub async fn draw_player_unit(
-    unit: &mut UnitInfo,
-    textures: &mut Textures,
-    cur_position: GridTile,
-) {
+pub async fn draw_player_unit(unit: &UnitInfo, textures: &mut Textures, cur_position: GridTile) {
     //draw player unit
     paint_tile(
         cur_position,
         TILE_SIZE,
         textures
             .units
-            .get_texture(unit.unit_type, TextTureType::Default),
+            .get_texture(unit.unit_type, TextureType::Default),
         match unit.player_id {
             Entity::Player => false,
             Entity::AI => true,
@@ -270,6 +230,28 @@ pub async fn draw_infrastructure(textures: &mut Textures, infra_vector: &Infrast
     }
 }
 
+pub fn init_player_units(id_gen: &mut UnitId) -> PlayerUnits {
+    let mut result = PlayerUnits::new();
+    result.add_unit_at(UnitTilesEnum::Tank, id_gen, Entity::Player, (2, 3));
+    result.add_unit_at(UnitTilesEnum::APC, id_gen, Entity::Player, (3, 3));
+    result
+}
+
+pub async fn draw_player_units(
+    textures: &mut Textures,
+    player_units_map: &PlayerUnits,
+    excl: Option<GridTile>,
+) {
+    for (tile, units) in &player_units_map.units_by_tile {
+        if excl.is_some() && excl.unwrap() == *tile {
+            continue;
+        }
+        for unit in units.values() {
+            draw_player_unit(unit, textures, unit.location).await;
+        }
+    }
+}
+
 #[macroquad::main("Strategy")]
 async fn main() {
     let mut state = menu::GameState::Menu;
@@ -279,12 +261,7 @@ async fn main() {
         .await
         .expect("Failed to load menu assets");
     let mut map = TerrainGrid::new("assets/terrain_map.txt");
-    let mut unit = UnitInfo::new(
-        UnitTilesEnum::AttackHeli,
-        &mut id_gen,
-        Entity::Player,
-        (2, 3),
-    );
+    let mut player_units_map = init_player_units(&mut id_gen);
 
     //Add infrastructure object and add few test items
     // add them to the map
@@ -311,10 +288,7 @@ async fn main() {
         (screen_height() / TILE_SIZE.1) as u16,
     );
 
-    let mut cur_position = PositionTracker::new((2, 3), tile_count);
-    let mouse = MouseTracker::new(TILE_SIZE);
-    let speed = 0.6;
-    let mut last_update = get_time();
+    let mut mouse = MouseTracker::new();
 
     loop {
         match state {
@@ -327,28 +301,61 @@ async fn main() {
             _ => {
                 clear_background(LIGHTGRAY);
 
-                //MouseTracker.process_mouse_action();
-                process_unit_movement(&mut cur_position, &mut unit, &mut map);
-
                 //draw a grid (TODO: macroquad has draw_grid too, explore using it)
                 draw::draw_grid(tile_count, TILE_SIZE).await;
 
-                if get_time() - last_update > speed {
-                    last_update = get_time();
-                    cur_position.unlock_move();
-                }
-
                 draw_terrain(&mut textures, &mut map, tile_count).await;
 
-                draw_player_unit(&mut unit, &mut textures, cur_position.get_position()).await;
+                mouse.process_mouse_action(&player_units_map);
 
-                draw_visible_enemy_units(
-                    &mut map,
-                    &enemy_units,
-                    &mut textures,
-                    cur_position.get_position(),
-                )
-                .await;
+                let mut draw_unit_exception = None;
+
+                if mouse.is_dragging() {
+                    let pixel = mouse.get_click_drag_draw_offset();
+                    draw_unit_exception = mouse.get_start_cursor_tile();
+                    let id = mouse.get_selected_unit_id();
+                    if let Some(unit) = player_units_map
+                        .units_by_tile
+                        .get(&draw_unit_exception.unwrap())
+                        .and_then(|units| units.get(&id))
+                    {
+                        paint_tile_at_pixel(
+                            pixel,
+                            TILE_SIZE,
+                            textures
+                                .units
+                                .get_texture(unit.unit_type, TextureType::Default),
+                            false,
+                        )
+                        .await;
+                    }
+                } else {
+                    if let Some(new_position) = mouse.get_new_tile_if_moved() {
+                        let id = mouse.get_selected_unit_id();
+                        let start_pos = mouse.get_start_cursor_tile().unwrap();
+
+                        if let Some(unit) = player_units_map
+                            .units_by_tile
+                            .get_mut(&start_pos)
+                            .unwrap()
+                            .get_mut(&id)
+                        {
+
+                            process_unit_movement(new_position, unit, &mut map);
+                            if new_position == unit.location {
+                                player_units_map.move_unit(start_pos, id, new_position);
+                                draw_visible_enemy_units(
+                                    &mut map,
+                                    &enemy_units,
+                                    &mut textures,
+                                    new_position,
+                                )
+                                .await;
+                            }
+                        }
+                    }
+                }
+                draw_player_units(&mut textures, &player_units_map, draw_unit_exception).await;
 
                 draw_infrastructure(&mut textures, &infra_vector).await;
             } //game state
