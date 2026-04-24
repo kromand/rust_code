@@ -39,3 +39,11 @@ pub struct LoginUserDto {
     pub id: u64,
     pub password: String,
 }
+
+#[derive(Deserialize)]
+pub struct ListPostParams {
+    pub page: Option<u32>,
+    pub size: Option<u32>,
+    pub username: Option<String>,
+    pub tag: Option<String>,
+}

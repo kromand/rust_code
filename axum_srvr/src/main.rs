@@ -79,7 +79,7 @@ async fn main() -> anyhow::Result<()>{
     // build our application with a single route
     let app = routes::get_routes::get_user_route(state);
 
-    let addr = SocketAddr::from(([127, 0, 0, 1], 443));
+    let addr = SocketAddr::from(([192, 168, 1, 2], 443));
 
     axum_server::bind_rustls(addr, tls_config)
         .serve(app.into_make_service())

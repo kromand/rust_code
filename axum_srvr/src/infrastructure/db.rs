@@ -80,3 +80,23 @@ pub async fn delete_user(pool: &PgPool, user_id: i32) -> Result<bool,sqlx::Error
     }
     Ok(true)
 }
+
+pub async fn list_users(pool: &PgPool, user_id: i32, tag: String, size: usize, offset: usize) -> Result<Vec<User>,sqlx::Error>
+{
+    let users: Vec<User> = sqlx::query_as!(User,
+        r#"    
+        SELECT id, name, data FROM generic 
+        where id = $1 or data = $2
+        LIMIT $3 OFFSET $4
+        "#,
+        user_id,
+        tag,
+        size as i64,
+        offset as i64
+    )
+    .fetch_all(pool)
+    .await
+    .unwrap_or_else(|_| vec![]); 
+
+    Ok(users)
+}

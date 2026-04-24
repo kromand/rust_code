@@ -5,6 +5,7 @@ use crate::utils::ApiError;
 use crate::infrastructure;
 
 use std::sync::Arc;
+use chrono::offset;
 use tokio::sync::Mutex;
 use tracing::info;
 use axum::{Json,extract::{Path, State},response::IntoResponse,};
@@ -194,4 +195,28 @@ pub async fn get_user_name(Json(payload): Json<dto::user_dto::CreateUser>) -> im
         user_name: "name".into(),
     };
     Json(user)
+}
+
+pub async fn list_users(Json(params): Json<dto::user_dto::ListPostParams>,
+    State(state): State<Arc<Mutex<services::user_service::AppState>>>) -> impl IntoResponse {
+    println!("list_users ");
+
+    let page = params.page.unwrap_or(1);
+    let size = params.size.unwrap_or(10);   
+    let offset = (page - 1) * size;
+
+    let users = match infrastructure::db::list_users(&state.lock().await.database_con_pool, 0, params.tag.unwrap_or("".into()), size as usize, offset as usize).await
+    {
+        Ok(users) => users.into_iter().map(|u| dto::user_dto::UserResponse {
+            id: u.id as u64,
+            user_name: u.name,
+        }).collect(),
+        Err(e) => {
+            println!("Error listing users: {}", e);
+            vec![]
+        }
+    };   
+
+
+    Json(users)
 }
