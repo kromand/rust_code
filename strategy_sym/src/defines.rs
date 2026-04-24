@@ -53,3 +53,10 @@ pub enum UnitTilesEnum {
     SAM,
     End,
 } 
+
+#[derive(Clone, Copy,Debug)]
+pub enum MoveResult {
+    Success,
+    InvalidMove,
+    UnitDestroyed,
+} 

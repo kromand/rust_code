@@ -1,6 +1,7 @@
 use macroquad::prelude::*;
 use macroquad::ui::{Skin, hash, root_ui, widgets};
 
+#[derive(PartialEq, Eq)] 
 pub enum GameState {
     Menu,
     Game,
@@ -74,9 +75,14 @@ pub async fn initialize_menu(menu_skin: &Box<Skin>) {
     root_ui().push_skin(&menu_skin);
 }
 
+pub fn clear_ui_skin() {
+    root_ui().pop_skin();
+}
+
 pub async fn show_menu(game_state: &mut GameState) {
     clear_background(GRAY);
     let window_size = vec2(370.0, 320.0);
+
     root_ui().window(
         hash!(),
         vec2(
@@ -95,4 +101,27 @@ pub async fn show_menu(game_state: &mut GameState) {
             }
         },
     );
+}
+
+pub fn show_popup_menu(show_popup: &mut bool, popup_position: (f32, f32)) {
+
+    if *show_popup {
+        root_ui().window(
+            hash!(),
+            vec2(popup_position.0, popup_position.1),
+            vec2(80.0, 100.0),
+            |ui| {
+                ui.label(vec2(0.0, 10.0), "Selection:");
+                if ui.button(vec2(10.0, 30.0), "Factory") {
+                    *show_popup = false;
+                }
+                if ui.button(vec2(10.0, 50.0), "Units") {
+                    *show_popup = false;
+                }
+                if ui.button(vec2(10.0, 70.0), "Cancel") {
+                    *show_popup = false;
+                }
+            },
+        );
+    }
 }

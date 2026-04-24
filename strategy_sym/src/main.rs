@@ -37,6 +37,8 @@ pub struct MouseTracker {
     start_cursor_position: Option<PixelOffset>,
     end_cursor_position: Option<PixelOffset>,
     unitid: usize,
+    show_popup: bool,
+    popup_position: PixelOffset,
 }
 
 impl MouseTracker {
@@ -45,6 +47,8 @@ impl MouseTracker {
             end_cursor_position: None,
             start_cursor_position: None,
             unitid: 0,
+            show_popup: false,
+            popup_position: (0.0, 0.0),
         }
     }
     pub fn process_mouse_action(self: &mut MouseTracker, units: &PlayerUnits) {
@@ -69,7 +73,10 @@ impl MouseTracker {
             }
         }
 
-        if is_mouse_button_down(MouseButton::Right) {}
+        if is_mouse_button_pressed(MouseButton::Right) {
+            self.show_popup = true;
+            self.popup_position = (mouse_x, mouse_y);
+        }
         if is_mouse_button_down(MouseButton::Middle) {}
     }
 
@@ -116,12 +123,21 @@ impl MouseTracker {
     }
 }
 
-pub fn process_unit_movement(new_pos: GridTile, unit: &mut UnitInfo, map: &mut TerrainGrid) {
+pub fn process_unit_movement(
+    new_pos: GridTile,
+    unit: &mut UnitInfo,
+    map: &mut TerrainGrid,
+) -> MoveResult {
     if unit.location != new_pos && unit.allowed_move(map.get_titletype_for_cord(new_pos).unwrap()) {
         let (move_successfull, mine_damage) =
-            map.process_unit_movement(unit.unit_id, unit.location, new_pos, Entity::Player);
+            map.move_unit_to_new_tile(unit.unit_id, unit.location, new_pos, Entity::Player);
         if mine_damage {
-            unit.assess_damage(random::random_nums::generate(100));
+            if unit.assess_damage(random::random_nums::generate(100)) {
+                //unit dead. Remove from map and player units
+                map.remove_unit(unit.unit_id, unit.location, Entity::Player);
+
+                return MoveResult::UnitDestroyed;
+            }
         }
         if move_successfull {
             unit.location = new_pos;
@@ -131,15 +147,18 @@ pub fn process_unit_movement(new_pos: GridTile, unit: &mut UnitInfo, map: &mut T
                 unit.prob_to_detect_units,
                 Entity::Player,
             );
+            return MoveResult::Success;
         }
     }
+
+    return MoveResult::InvalidMove;
 }
 
 pub async fn draw_visible_enemy_units(
     map: &mut TerrainGrid,
     enemy_units: &AI_units,
     textures: &mut Textures,
-    cur_position: GridTile,
+    enemy_units_present: bool,
 ) {
     //draw visible AI units
     for (_, unit_map) in &map.visible_units_per_tile {
@@ -163,7 +182,7 @@ pub async fn draw_visible_enemy_units(
                     unit.location,
                     unit.get_health_bar(),
                     Entity::AI,
-                    unit.location == cur_position,
+                    enemy_units_present,
                 )
                 .await;
             }
@@ -252,6 +271,61 @@ pub async fn draw_player_units(
     }
 }
 
+pub async fn handle_unit_interaction(
+    mouse: &MouseTracker,
+    player_units_map: &mut PlayerUnits,
+    textures: &mut Textures,
+    map: &mut TerrainGrid,
+    enemy_units: &AI_units,
+) -> Option<GridTile> {
+    if mouse.is_dragging() {
+        let pixel = mouse.get_click_drag_draw_offset();
+        let draw_unit_exception = mouse.get_start_cursor_tile();
+        let id = mouse.get_selected_unit_id();
+        if let Some(unit) = player_units_map
+            .units_by_tile
+            .get(&draw_unit_exception.unwrap())
+            .and_then(|units| units.get(&id))
+        {
+            paint_tile_at_pixel(
+                pixel,
+                TILE_SIZE,
+                textures
+                    .units
+                    .get_texture(unit.unit_type, TextureType::Default),
+                false,
+            )
+            .await;
+        }
+        draw_unit_exception
+    } else {
+        if let Some(new_position) = mouse.get_new_tile_if_moved() {
+            let id = mouse.get_selected_unit_id();
+            let start_pos = mouse.get_start_cursor_tile().unwrap();
+
+            if let Some(unit) = player_units_map
+                .units_by_tile
+                .get_mut(&start_pos)
+                .unwrap()
+                .get_mut(&id)
+            {
+                match process_unit_movement(new_position, unit, map) {
+                    MoveResult::Success => {
+                        player_units_map.move_unit(start_pos, id, new_position);
+                    }
+                    MoveResult::InvalidMove => {
+                        // no action, unit was dropped back to original tile
+                    }
+                    MoveResult::UnitDestroyed => {
+                        player_units_map.remove_unit(start_pos, id);
+                    }
+                }
+            }
+        }
+        None
+    }
+}
+
 #[macroquad::main("Strategy")]
 async fn main() {
     let mut state = menu::GameState::Menu;
@@ -294,6 +368,9 @@ async fn main() {
         match state {
             menu::GameState::Menu => {
                 menu::show_menu(&mut state).await;
+                if state == menu::GameState::Game {
+                    menu::clear_ui_skin();
+                }
             }
             menu::GameState::Exit => {
                 break;
@@ -308,56 +385,21 @@ async fn main() {
 
                 mouse.process_mouse_action(&player_units_map);
 
-                let mut draw_unit_exception = None;
+                let draw_unit_exception = handle_unit_interaction(
+                    &mouse,
+                    &mut player_units_map,
+                    &mut textures,
+                    &mut map,
+                    &enemy_units,
+                )
+                .await;
 
-                if mouse.is_dragging() {
-                    let pixel = mouse.get_click_drag_draw_offset();
-                    draw_unit_exception = mouse.get_start_cursor_tile();
-                    let id = mouse.get_selected_unit_id();
-                    if let Some(unit) = player_units_map
-                        .units_by_tile
-                        .get(&draw_unit_exception.unwrap())
-                        .and_then(|units| units.get(&id))
-                    {
-                        paint_tile_at_pixel(
-                            pixel,
-                            TILE_SIZE,
-                            textures
-                                .units
-                                .get_texture(unit.unit_type, TextureType::Default),
-                            false,
-                        )
-                        .await;
-                    }
-                } else {
-                    if let Some(new_position) = mouse.get_new_tile_if_moved() {
-                        let id = mouse.get_selected_unit_id();
-                        let start_pos = mouse.get_start_cursor_tile().unwrap();
-
-                        if let Some(unit) = player_units_map
-                            .units_by_tile
-                            .get_mut(&start_pos)
-                            .unwrap()
-                            .get_mut(&id)
-                        {
-
-                            process_unit_movement(new_position, unit, &mut map);
-                            if new_position == unit.location {
-                                player_units_map.move_unit(start_pos, id, new_position);
-                                draw_visible_enemy_units(
-                                    &mut map,
-                                    &enemy_units,
-                                    &mut textures,
-                                    new_position,
-                                )
-                                .await;
-                            }
-                        }
-                    }
-                }
                 draw_player_units(&mut textures, &player_units_map, draw_unit_exception).await;
 
                 draw_infrastructure(&mut textures, &infra_vector).await;
+
+                draw_visible_enemy_units(&mut map, &enemy_units, &mut textures, false).await;
+                menu::show_popup_menu(&mut mouse.show_popup, mouse.popup_position);
             } //game state
         }
 

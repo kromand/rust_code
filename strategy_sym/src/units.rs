@@ -295,10 +295,10 @@ pub mod Units {
             self.health / self.max_health
         }
         pub fn assess_damage(self: &mut UnitInfo, prob: usize) -> bool {
-            if prob <= 15 {
-                return self.takes_damage(0.3 * self.max_health);
+            if prob <= 85 {
+                self.takes_damage(0.3 * self.max_health);
             }
-            false
+            self.health <= 0.0
         }
     }
 
@@ -359,12 +359,13 @@ pub mod Units {
 
         pub fn move_unit(&mut self, start_tile: GridTile, unit_id: usize, new_tile: GridTile) -> bool {
             if let Some(units_at_tile) = self.units_by_tile.get_mut(&start_tile) {
-                if let Some( unit) = units_at_tile.remove(&unit_id) {
-
+                if let Some( mut unit) = units_at_tile.remove(&unit_id) {
+                    unit.location = new_tile;
                     self.units_by_tile
                         .entry(new_tile)
                         .or_default()
                         .insert(unit_id, unit);
+                    
                     return true;
                 }
             }
@@ -374,6 +375,15 @@ pub mod Units {
 
         pub fn get_units_at(&self, tile: GridTile) -> Option<&HashMap<usize, UnitInfo>> {
             self.units_by_tile.get(&tile)
+        }
+
+        pub fn remove_unit(&mut self, tile: GridTile, unit_id: usize) -> bool {
+            if let Some(units_at_tile) = self.units_by_tile.get_mut(&tile) {
+                if units_at_tile.remove(&unit_id).is_some() {
+                    return true;
+                }
+            }
+            false
         }
     }
 
@@ -455,7 +465,8 @@ pub mod Units {
             let moved = player_units.move_unit((2, 3), unit_id, (3, 4));
 
             assert!(moved, "move_unit should succeed when start_tile contains the unit");
-            assert!(player_units.get_units_at((2, 3)).is_none(), "old tile should be empty after move");
+            let source_units = player_units.get_units_at((2, 3)).expect("source tile should exist");
+            assert!(source_units.is_empty(), "old tile should be empty after move");
 
             let target_units = player_units.get_units_at((3, 4)).expect("Target tile should exist");
             assert_eq!(target_units.len(), 1);

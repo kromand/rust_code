@@ -125,8 +125,14 @@ pub mod terrain {
                 TerrainGrid::add_unit(unit_id, end_tile_info, ent);
             }
         }
-        pub fn remove_unit(unit_id: usize, tile_info: &mut TileInfo, ent: Entity) {
+        pub fn remove_hidden_unit(unit_id: usize, tile_info: &mut TileInfo, ent: Entity) {
             tile_info.hidden_units[ent as usize].remove(&unit_id);
+        }
+        pub fn remove_unit(self: &mut TerrainGrid, unit_id: usize, tile: GridTile, ent: Entity) {
+            if let Some(tile_info) = self.get_title_for_cord(tile) {
+                tile_info.hidden_units[ent as usize].remove(&unit_id);
+                tile_info.visible_units[ent as usize].remove(&unit_id);
+            }
         }
         pub fn make_visible(self: &mut TerrainGrid, unit_id: usize, tile: GridTile, ent: Entity) {
             if let Some(t) = self.get_title_for_cord(tile) {
@@ -135,13 +141,13 @@ pub mod terrain {
             }
         }
         pub fn has_mines(tile: &mut TileInfo) -> bool {
-            if let Some(infr) = tile.infrastruct.get_mut(&InfrastructureEnum::Mines){
+            if let Some(infr) = tile.infrastruct.get_mut(&InfrastructureEnum::Mines) {
                 //infr.detected = true;
                 return true;
             }
             false
         }
-        pub fn process_unit_movement(
+        pub fn move_unit_to_new_tile(
             self: &mut TerrainGrid,
             unit_id: usize,
             move_from_tile: GridTile,
@@ -155,7 +161,7 @@ pub mod terrain {
             }
             if res.0 {
                 if let Some(start_tile_info) = self.get_title_for_cord(move_from_tile) {
-                    TerrainGrid::remove_unit(unit_id, start_tile_info, ent);
+                    TerrainGrid::remove_hidden_unit(unit_id, start_tile_info, ent);
                 } else {
                     res.0 = false;
                 }
@@ -252,7 +258,7 @@ pub mod terrain {
                 self.scan_around(tile, r as u16, detect_possiblity / r, ent);
             }
         }
-        pub fn add_infr(self:&mut TerrainGrid, new_infr: Arc<infstrt::InfrObject>) {
+        pub fn add_infr(self: &mut TerrainGrid, new_infr: Arc<infstrt::InfrObject>) {
             if let Some(tile_info) = self.get_title_for_cord(new_infr.location) {
                 tile_info.infrastruct.insert(new_infr.infr_type, new_infr);
             }
