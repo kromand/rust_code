@@ -106,9 +106,11 @@ pub async fn show_menu(game_state: &mut GameState) {
 pub fn show_popup_menu(show_popup: &mut bool, popup_position: (f32, f32)) {
 
     if *show_popup {
+        dbg!(&popup_position);
+        let test = vec2(popup_position.0, popup_position.1);
         root_ui().window(
             hash!(),
-            vec2(popup_position.0, popup_position.1),
+            test,
             vec2(80.0, 100.0),
             |ui| {
                 ui.label(vec2(0.0, 10.0), "Selection:");
@@ -123,5 +125,8 @@ pub fn show_popup_menu(show_popup: &mut bool, popup_position: (f32, f32)) {
                 }
             },
         );
+    }
+    else {
+        root_ui().popup(id, size, f);
     }
 }

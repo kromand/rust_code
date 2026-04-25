@@ -73,7 +73,7 @@ impl MouseTracker {
             }
         }
 
-        if is_mouse_button_pressed(MouseButton::Right) {
+        if is_mouse_button_down(MouseButton::Right) {
             self.show_popup = true;
             self.popup_position = (mouse_x, mouse_y);
         }
