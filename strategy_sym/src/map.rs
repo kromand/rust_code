@@ -7,7 +7,7 @@ pub mod terrain {
     use crate::random::random_nums;
     use std::fs::File;
     use std::io::{BufRead, BufReader};
-    use std::sync::Arc;
+    use std::sync::{Arc, Mutex};
 
     use macroquad::prelude::*;
     struct TileInfo {
@@ -15,7 +15,7 @@ pub mod terrain {
         location: GridTile,
         visible_units: [HashSet<usize>; 2],
         hidden_units: [HashSet<usize>; 2],
-        infrastruct: HashMap<InfrastructureEnum, Arc<infstrt::InfrObject>>,
+        infrastruct: HashMap<InfrastructureEnum, Arc<Mutex<infstrt::InfrObject>>>,
     }
     pub struct TerrainGrid {
         map: Vec<Vec<TileInfo>>,
@@ -38,7 +38,7 @@ pub mod terrain {
                         location: (y as u16, x as u16),
                         visible_units: [HashSet::<usize>::new(), HashSet::<usize>::new()],
                         hidden_units: [HashSet::<usize>::new(), HashSet::<usize>::new()],
-                        infrastruct: HashMap::<InfrastructureEnum, Arc<infstrt::InfrObject>>::new(),
+                        infrastruct: HashMap::<InfrastructureEnum, Arc<Mutex<infstrt::InfrObject>>>::new(),
                     })
                     .collect();
                 m.push(row);
@@ -258,9 +258,12 @@ pub mod terrain {
                 self.scan_around(tile, r as u16, detect_possiblity / r, ent);
             }
         }
-        pub fn add_infr(self: &mut TerrainGrid, new_infr: Arc<infstrt::InfrObject>) {
-            if let Some(tile_info) = self.get_title_for_cord(new_infr.location) {
-                tile_info.infrastruct.insert(new_infr.infr_type, new_infr);
+        pub fn add_infr(self: &mut TerrainGrid, new_infr: Arc<Mutex<infstrt::InfrObject>>) {
+            let tp = new_infr.lock().unwrap().infr_type;
+            let loc = new_infr.lock().unwrap().location;
+            
+            if let Some(tile_info) = self.get_title_for_cord(loc) {
+                tile_info.infrastruct.insert(tp, new_infr);
             }
         }
     }

@@ -19,16 +19,15 @@ pub enum Entity {
 }
 
 impl Entity {
-    pub fn get_opposite(p: Entity) -> Entity
-    {
+    pub fn get_opposite(p: Entity) -> Entity {
         match p {
-           Entity::AI => Entity::Player, 
-           Entity::Player => Entity::AI,   
+            Entity::AI => Entity::Player,
+            Entity::Player => Entity::AI,
         }
     }
 }
 
-#[derive(Clone, Copy,Eq, PartialEq, Hash,Debug)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash, Debug)]
 pub enum InfrastructureEnum {
     Fatory,
     Mines,
@@ -37,9 +36,9 @@ pub enum InfrastructureEnum {
     Road,
     Airfield,
     End,
-} 
+}
 
-#[derive(Clone, Copy,Debug)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash, Debug)]
 pub enum UnitTilesEnum {
     Tank,
     Infantry,
@@ -52,11 +51,11 @@ pub enum UnitTilesEnum {
     TransportHeli,
     SAM,
     End,
-} 
+}
 
-#[derive(Clone, Copy,Debug)]
+#[derive(Clone, Copy, Debug)]
 pub enum MoveResult {
     Success,
     InvalidMove,
     UnitDestroyed,
-} 
+}

@@ -103,14 +103,19 @@ pub async fn show_menu(game_state: &mut GameState) {
     );
 }
 
-pub fn show_popup_menu(show_popup: &mut bool, popup_position: (f32, f32)) {
+pub fn show_popup_menu(show_popup: &mut bool, popup_position: (f32, f32), popup_id: &mut Option<u64>) {
+
 
     if *show_popup {
-        dbg!(&popup_position);
-        let test = vec2(popup_position.0, popup_position.1);
+        let location = vec2(popup_position.0, popup_position.1);
+        if popup_id.is_none() {
+            *popup_id = Some(hash!());
+        }
+
+        root_ui().move_window(popup_id.unwrap(), location);
         root_ui().window(
-            hash!(),
-            test,
+            popup_id.unwrap(),
+            location,
             vec2(80.0, 100.0),
             |ui| {
                 ui.label(vec2(0.0, 10.0), "Selection:");
@@ -124,9 +129,6 @@ pub fn show_popup_menu(show_popup: &mut bool, popup_position: (f32, f32)) {
                     *show_popup = false;
                 }
             },
-        );
-    }
-    else {
-        root_ui().popup(id, size, f);
+        );  
     }
 }

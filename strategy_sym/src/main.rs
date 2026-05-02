@@ -39,6 +39,7 @@ pub struct MouseTracker {
     unitid: usize,
     show_popup: bool,
     popup_position: PixelOffset,
+    popup_id: Option<u64>,
 }
 
 impl MouseTracker {
@@ -49,6 +50,7 @@ impl MouseTracker {
             unitid: 0,
             show_popup: false,
             popup_position: (0.0, 0.0),
+            popup_id: None,
         }
     }
     pub fn process_mouse_action(self: &mut MouseTracker, units: &PlayerUnits) {
@@ -236,12 +238,17 @@ pub async fn draw_terrain(textures: &mut Textures, map: &mut TerrainGrid, tile_c
 
 pub async fn draw_infrastructure(textures: &mut Textures, infra_vector: &InfrastructureContainer) {
     //draw infrastructure objects
-    for obj in infra_vector.infr_objects.iter() {
-        if obj.detected {
+    for infr_arc in infra_vector.infr_objects.iter() {
+        let (loc, tp, detected) = {
+            let obj = infr_arc.lock().unwrap();
+            (obj.location, obj.infr_type, obj.detected)
+        };
+
+        if detected {
             paint_tile(
-                obj.location,
+                loc,
                 TILE_SIZE,
-                textures.infrastructure.get_infra_texture(obj.infr_type),
+                textures.infrastructure.get_infra_texture(tp),
                 false,
             )
             .await;
@@ -254,6 +261,19 @@ pub fn init_player_units(id_gen: &mut UnitId) -> PlayerUnits {
     result.add_unit_at(UnitTilesEnum::Tank, id_gen, Entity::Player, (2, 3));
     result.add_unit_at(UnitTilesEnum::APC, id_gen, Entity::Player, (3, 3));
     result
+}
+
+/// Adds a unit to both the player_units_map and the map
+pub fn add_unit(
+    player_units_map: &mut PlayerUnits,
+    map: &mut TerrainGrid,
+    unit: UnitInfo
+)  {
+    // Add to map as hidden player unit
+    map.add_hidden_unit(unit.unit_id, unit.location, Entity::Player);
+
+    // Add to player_units_map
+    player_units_map.add_unit(unit);
 }
 
 pub async fn draw_player_units(
@@ -394,12 +414,16 @@ async fn main() {
                 )
                 .await;
 
-                draw_player_units(&mut textures, &player_units_map, draw_unit_exception).await;
-
                 draw_infrastructure(&mut textures, &infra_vector).await;
 
+                draw_player_units(&mut textures, &player_units_map, draw_unit_exception).await;
+
                 draw_visible_enemy_units(&mut map, &enemy_units, &mut textures, false).await;
-                menu::show_popup_menu(&mut mouse.show_popup, mouse.popup_position);
+                menu::show_popup_menu(
+                    &mut mouse.show_popup,
+                    mouse.popup_position,
+                    &mut mouse.popup_id,
+                );
             } //game state
         }
 
