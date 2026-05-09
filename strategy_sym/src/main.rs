@@ -4,6 +4,7 @@ mod draw;
 mod infrastructure;
 mod map;
 mod menu;
+mod mouse;
 mod random;
 mod units;
 mod utils;
@@ -12,6 +13,8 @@ use crate::defines::*;
 use crate::draw::*;
 use crate::infrastructure::infstrt::*;
 use crate::map::terrain::*;
+use crate::menu::MenuType;
+use crate::mouse::MouseTracker;
 use crate::units::Units::*;
 
 pub struct Textures {
@@ -30,98 +33,6 @@ impl Textures {
             units: un,
             infrastructure: infr,
         })
-    }
-}
-
-pub struct MouseTracker {
-    start_cursor_position: Option<PixelOffset>,
-    end_cursor_position: Option<PixelOffset>,
-    unitid: usize,
-    show_popup: bool,
-    popup_position: PixelOffset,
-    popup_id: Option<u64>,
-}
-
-impl MouseTracker {
-    pub fn new() -> MouseTracker {
-        MouseTracker {
-            end_cursor_position: None,
-            start_cursor_position: None,
-            unitid: 0,
-            show_popup: false,
-            popup_position: (0.0, 0.0),
-            popup_id: None,
-        }
-    }
-    pub fn process_mouse_action(self: &mut MouseTracker, units: &PlayerUnits) {
-        let (mouse_x, mouse_y) = mouse_position();
-        let mouse_tile = self.get_cursor_pointed_tile();
-
-        if is_mouse_button_down(MouseButton::Left) {
-            if let Some(u) = units.get_units_at(mouse_tile) {
-                if !u.is_empty() && self.start_cursor_position.is_none() {
-                    //get first unit id from the tile and set it as selected, also set start cursor position for dragging
-                    self.unitid = *u.iter().next().unwrap().0;
-                    self.end_cursor_position = None;
-                    self.start_cursor_position = Some((mouse_x, mouse_y));
-                }
-            }
-        } else {
-            if self.end_cursor_position.is_none() {
-                self.end_cursor_position = Some((mouse_x, mouse_y));
-            } else if self.end_cursor_position.is_some() {
-                self.end_cursor_position = None;
-                self.start_cursor_position = None;
-            }
-        }
-
-        if is_mouse_button_down(MouseButton::Right) {
-            self.show_popup = true;
-            self.popup_position = (mouse_x, mouse_y);
-        }
-        if is_mouse_button_down(MouseButton::Middle) {}
-    }
-
-    pub fn get_selected_unit_id(self: &MouseTracker) -> usize {
-        self.unitid
-    }
-
-    pub fn is_dragging(self: &MouseTracker) -> bool {
-        is_mouse_button_down(MouseButton::Left)
-            && self.start_cursor_position.is_some()
-            && self.end_cursor_position.is_none()
-    }
-    pub fn get_cursor_pointed_tile(self: &MouseTracker) -> GridTile {
-        let (mouse_x, mouse_y) = mouse_position();
-        utils::conv::pixel_offset_to_grid((mouse_x, mouse_y))
-    }
-    pub fn get_new_tile_if_moved(self: &MouseTracker) -> Option<GridTile> {
-        if self.start_cursor_position.is_some() && self.end_cursor_position.is_some() {
-            let (mouse_x, mouse_y) = mouse_position();
-            return Some(utils::conv::pixel_offset_to_grid((mouse_x, mouse_y)));
-        }
-        None
-    }
-
-    pub fn get_start_cursor_tile(self: &MouseTracker) -> Option<GridTile> {
-        if let Some(pos) = self.start_cursor_position {
-            return Some(utils::conv::pixel_offset_to_grid(pos));
-        }
-        None
-    }
-
-    pub fn get_click_drag_draw_offset(self: &MouseTracker) -> PixelOffset {
-        let cur_pos: PixelOffset = mouse_position();
-
-        // this method should be called only when LMB was clicked and held, on calling unwrap on start_cursor_position is safe
-        let original_tile = utils::conv::pixel_offset_to_grid(self.start_cursor_position.unwrap());
-        let original_tile_offset = utils::conv::pixel_offset_of_gridtile(original_tile);
-        let delta: PixelOffset = (
-            self.start_cursor_position.unwrap().0 - original_tile_offset.0,
-            self.start_cursor_position.unwrap().1 - original_tile_offset.1,
-        );
-
-        utils::conv::zero_floor_sub(cur_pos, delta)
     }
 }
 
@@ -258,17 +169,13 @@ pub async fn draw_infrastructure(textures: &mut Textures, infra_vector: &Infrast
 
 pub fn init_player_units(id_gen: &mut UnitId) -> PlayerUnits {
     let mut result = PlayerUnits::new();
-    result.add_unit_at(UnitTilesEnum::Tank, id_gen, Entity::Player, (2, 3));
-    result.add_unit_at(UnitTilesEnum::APC, id_gen, Entity::Player, (3, 3));
+    //result.add_unit_at(UnitTilesEnum::Tank, id_gen, Entity::Player, (2, 3));
+    //result.add_unit_at(UnitTilesEnum::APC, id_gen, Entity::Player, (3, 3));
     result
 }
 
 /// Adds a unit to both the player_units_map and the map
-pub fn add_unit(
-    player_units_map: &mut PlayerUnits,
-    map: &mut TerrainGrid,
-    unit: UnitInfo
-)  {
+pub fn add_unit(player_units_map: &mut PlayerUnits, map: &mut TerrainGrid, unit: UnitInfo) {
     // Add to map as hidden player unit
     map.add_hidden_unit(unit.unit_id, unit.location, Entity::Player);
 
@@ -359,9 +266,9 @@ async fn main() {
 
     //Add infrastructure object and add few test items
     // add them to the map
-    let mut infra_vector = InfrastructureContainer::new();
-    infra_vector.Init();
-    for obj in infra_vector.infr_objects.iter() {
+    let mut infr_container = InfrastructureContainer::new();
+    infr_container.Init();
+    for obj in infr_container.infr_objects.iter() {
         map.add_infr(obj.clone());
     }
 
@@ -383,6 +290,7 @@ async fn main() {
     );
 
     let mut mouse = MouseTracker::new();
+    let mut menu_content: MenuType = MenuType::Main;
 
     loop {
         match state {
@@ -405,6 +313,8 @@ async fn main() {
 
                 mouse.process_mouse_action(&player_units_map);
 
+                //handle unit interaction and get the tile to exclude from drawing if unit is being dragged,
+                //this is to prevent drawing the unit at its original tile while dragging
                 let draw_unit_exception = handle_unit_interaction(
                     &mouse,
                     &mut player_units_map,
@@ -414,16 +324,19 @@ async fn main() {
                 )
                 .await;
 
-                draw_infrastructure(&mut textures, &infra_vector).await;
+                draw_infrastructure(&mut textures, &infr_container).await;
+
+                //checking for new units to add to the map from infrastructure and adding them to player units if found
+                let new_units = infr_container.iterate_infrastructure();
+                for unit in new_units {
+                    add_unit(&mut player_units_map, &mut map, *unit);
+                }
 
                 draw_player_units(&mut textures, &player_units_map, draw_unit_exception).await;
 
                 draw_visible_enemy_units(&mut map, &enemy_units, &mut textures, false).await;
-                menu::show_popup_menu(
-                    &mut mouse.show_popup,
-                    mouse.popup_position,
-                    &mut mouse.popup_id,
-                );
+                //right click popup menu
+                menu::show_popup_menu(&mut mouse, &mut menu_content, &mut map);
             } //game state
         }
 

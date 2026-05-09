@@ -1,11 +1,22 @@
 use macroquad::prelude::*;
-use macroquad::ui::{Skin, hash, root_ui, widgets};
+use macroquad::ui::{Skin, hash, root_ui, widgets,Ui};
 
-#[derive(PartialEq, Eq)] 
+use crate::MouseTracker;
+use crate::defines::{InfrastructureEnum, TILE_SIZE, UnitTilesEnum};
+use crate::map::terrain::TerrainGrid;
+
+#[derive(PartialEq, Eq)]
 pub enum GameState {
     Menu,
     Game,
     Exit,
+}
+
+pub enum MenuType {
+    Main,
+    Factory,
+    Airfield,
+    Unit,
 }
 pub struct MenuObjectPaths {
     window_background: &'static str,
@@ -16,8 +27,7 @@ pub struct MenuObjectPaths {
 }
 
 impl MenuObjectPaths {
-    pub fn new() -> MenuObjectPaths
-    {
+    pub fn new() -> MenuObjectPaths {
         MenuObjectPaths {
             window_background: "assets/window_background.png",
             button_font: "assets/HTOWERT.TTF",
@@ -79,6 +89,169 @@ pub fn clear_ui_skin() {
     root_ui().pop_skin();
 }
 
+fn popup_item_count(
+    selection: &MenuType,
+    terrain_grid: &TerrainGrid,
+    grid_tile: (u16, u16),
+    has_factory: bool,
+    has_airfield: bool,
+) -> usize {
+    match selection {
+        MenuType::Main => {
+            let mut count = 2;
+            if has_factory {
+                count += 1;
+            }
+            if has_airfield {
+                count += 1;
+            }
+            count
+        }
+        MenuType::Factory => {
+            let allowed_units = terrain_grid.get_factory_allowed_units(grid_tile);
+            if !allowed_units.is_empty() {
+                allowed_units.len() + 1
+            } else {
+                1
+            }
+        }
+        MenuType::Airfield => {
+            let allowed_units = terrain_grid.get_airfield_allowed_units(grid_tile);
+            if !allowed_units.is_empty() {
+                allowed_units.len() + 1
+            } else {
+                1
+            }
+        }
+        MenuType::Unit => 3,
+    }
+}
+
+fn render_popup_menu_content(
+    ui: &mut Ui,
+    mouse: &mut MouseTracker,
+    selection: &mut MenuType,
+    terrain_grid: &mut TerrainGrid,
+    grid_tile: (u16, u16),
+    has_factory: bool,
+    has_airfield: bool,
+) {
+    match selection {
+        MenuType::Main => render_popup_main_menu(ui, selection, mouse, has_factory, has_airfield),
+        MenuType::Factory => {
+            render_popup_factory_menu(ui, selection, mouse, terrain_grid, grid_tile)
+        }
+        MenuType::Airfield => {
+            render_popup_airfield_menu(ui, selection, mouse, terrain_grid, grid_tile)
+        }
+        MenuType::Unit => render_popup_unit_menu(ui, selection, mouse),
+    }
+}
+
+fn render_popup_main_menu(
+    ui: &mut Ui,
+    selection: &mut MenuType,
+    mouse: &mut MouseTracker,
+    has_factory: bool,
+    has_airfield: bool,
+) {
+    let mut y_offset = 30.0;
+    if has_factory {
+        if ui.button(vec2(10.0, y_offset), "Factory") {
+            *selection = MenuType::Factory;
+        }
+        y_offset += 20.0;
+    }
+    if has_airfield {
+        if ui.button(vec2(10.0, y_offset), "Airfield") {
+            *selection = MenuType::Airfield;
+        }
+        y_offset += 20.0;
+    }
+    if ui.button(vec2(10.0, y_offset), "Units") {
+        *selection = MenuType::Unit;
+    }
+    y_offset += 20.0;
+    if ui.button(vec2(10.0, y_offset), "Cancel") {
+        mouse.set_popup_visible(false);
+    }
+}
+
+fn render_popup_factory_menu(
+    ui: &mut Ui,
+    selection: &mut MenuType,
+    mouse: &mut MouseTracker,
+    terrain_grid: &mut TerrainGrid,
+    grid_tile: (u16, u16),
+) {
+    let allowed_units = terrain_grid.get_factory_allowed_units(grid_tile);
+    if !allowed_units.is_empty() {
+        let mut y_offset = 30.0;
+        for &unit_type in &allowed_units {
+            if ui.button(vec2(10.0, y_offset), unit_type.to_string()) {
+                terrain_grid.enqueue_unit_in_factory(grid_tile, unit_type);
+                mouse.set_popup_visible(false);
+                *selection = MenuType::Main;
+            }
+            y_offset += 20.0;
+        }
+        if ui.button(vec2(10.0, y_offset), "Cancel") {
+            mouse.set_popup_visible(false);
+            *selection = MenuType::Main;
+        }
+    } else if ui.button(vec2(10.0, 30.0), "Cancel") {
+        mouse.set_popup_visible(false);
+        *selection = MenuType::Main;
+    }
+}
+
+fn render_popup_airfield_menu(
+    ui: &mut Ui,
+    selection: &mut MenuType,
+    mouse: &mut MouseTracker,
+    terrain_grid: &mut TerrainGrid,
+    grid_tile: (u16, u16),
+) {
+    let allowed_units = terrain_grid.get_airfield_allowed_units(grid_tile);
+    if !allowed_units.is_empty() {
+        let mut y_offset = 30.0;
+        for &unit_type in &allowed_units {
+            if ui.button(vec2(10.0, y_offset), unit_type.to_string()) {
+                terrain_grid.enqueue_unit_in_airfield(grid_tile, unit_type);
+                mouse.set_popup_visible(false);
+                *selection = MenuType::Main;
+            }
+            y_offset += 20.0;
+        }
+        if ui.button(vec2(10.0, y_offset), "Cancel") {
+            mouse.set_popup_visible(false);
+            *selection = MenuType::Main;
+        }
+    } else if ui.button(vec2(10.0, 30.0), "Cancel") {
+        mouse.set_popup_visible(false);
+        *selection = MenuType::Main;
+    }
+}
+
+fn render_popup_unit_menu(
+    ui: &mut Ui,
+    selection: &mut MenuType,
+    mouse: &mut MouseTracker,
+) {
+    if ui.button(vec2(10.0, 30.0), "1st Tank") {
+        mouse.set_popup_visible(false);
+        *selection = MenuType::Main;
+    }
+    if ui.button(vec2(10.0, 50.0), "1st APC") {
+        mouse.set_popup_visible(false);
+        *selection = MenuType::Main;
+    }
+    if ui.button(vec2(10.0, 70.0), "Cancel") {
+        mouse.set_popup_visible(false);
+        *selection = MenuType::Main;
+    }
+}
+
 pub async fn show_menu(game_state: &mut GameState) {
     clear_background(GRAY);
     let window_size = vec2(370.0, 320.0);
@@ -93,7 +266,6 @@ pub async fn show_menu(game_state: &mut GameState) {
         |ui| {
             ui.label(vec2(80.0, -34.0), "Main Menu");
             if ui.button(vec2(65.0, 25.0), "Play") {
-
                 *game_state = GameState::Game;
             }
             if ui.button(vec2(65.0, 125.0), "Quit") {
@@ -103,32 +275,49 @@ pub async fn show_menu(game_state: &mut GameState) {
     );
 }
 
-pub fn show_popup_menu(show_popup: &mut bool, popup_position: (f32, f32), popup_id: &mut Option<u64>) {
-
-
-    if *show_popup {
-        let location = vec2(popup_position.0, popup_position.1);
-        if popup_id.is_none() {
-            *popup_id = Some(hash!());
+pub fn show_popup_menu(
+    mouse: &mut MouseTracker,
+    selection: &mut MenuType,
+    terrain_grid: &mut TerrainGrid,
+) {
+    if mouse.is_popup_visible() {
+        let location = vec2(mouse.popup_position().0, mouse.popup_position().1);
+        if mouse.popup_id().is_none() {
+            mouse.set_popup_id(hash!());
         }
 
-        root_ui().move_window(popup_id.unwrap(), location);
-        root_ui().window(
-            popup_id.unwrap(),
-            location,
-            vec2(80.0, 100.0),
-            |ui| {
-                ui.label(vec2(0.0, 10.0), "Selection:");
-                if ui.button(vec2(10.0, 30.0), "Factory") {
-                    *show_popup = false;
-                }
-                if ui.button(vec2(10.0, 50.0), "Units") {
-                    *show_popup = false;
-                }
-                if ui.button(vec2(10.0, 70.0), "Cancel") {
-                    *show_popup = false;
-                }
-            },
-        );  
+        let grid_col = (mouse.popup_position().0 / TILE_SIZE.0) as u16;
+        let grid_row = (mouse.popup_position().1 / TILE_SIZE.1) as u16;
+        let grid_tile = (grid_col, grid_row);
+        let has_factory = terrain_grid.has_infrastructure(grid_tile, InfrastructureEnum::Fatory);
+        let has_airfield = terrain_grid.has_infrastructure(grid_tile, InfrastructureEnum::Airfield);
+
+        if mouse.popup_position_changed() {
+            *selection = MenuType::Main;
+            mouse.reset_popup_position_changed();
+        }
+
+        let item_count = popup_item_count(
+            selection,
+            terrain_grid,
+            grid_tile,
+            has_factory,
+            has_airfield,
+        );
+        let window_size = vec2(100.0, 40.0 + item_count as f32 * 20.0 + 10.0);
+
+        root_ui().move_window(mouse.popup_id().unwrap(), location);
+        root_ui().window(mouse.popup_id().unwrap(), location, window_size, |ui| {
+            ui.label(vec2(0.0, 10.0), "Selection:");
+            render_popup_menu_content(
+                ui,
+                mouse,
+                selection,
+                terrain_grid,
+                grid_tile,
+                has_factory,
+                has_airfield,
+            );
+        });
     }
 }

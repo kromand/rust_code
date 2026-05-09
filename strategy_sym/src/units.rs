@@ -37,6 +37,8 @@ pub mod Units {
                 rocket_arty_txtr: vec![load_texture("assets/himars.png").await?],
                 apc_txtr: vec![load_texture("assets/apc_pix.png").await?],
                 attack_heli_txtr: vec![load_texture("assets/attack_heli.png").await?],
+                transport_heli_txtr: vec![load_texture("assets/transport_heli.png").await?],
+                plane_txtr: vec![load_texture("assets/plane.png").await?],
                 sam_txtr: vec![load_texture("assets/sam.png").await?],
                 infantry_txtr: vec![load_texture("assets/infantry_pix.png").await?],
                 scout_txtr: vec![load_texture("assets/scouts.png").await?],
@@ -52,6 +54,8 @@ pub mod Units {
                 rocket_arty_txtr: vec![load_texture("assets/himars.png").await?],
                 apc_txtr: vec![load_texture("assets/apc_pix.png").await?],
                 attack_heli_txtr: vec![load_texture("assets/attack_heli.png").await?],
+                transport_heli_txtr: vec![load_texture("assets/transport_heli.png").await?],
+                plane_txtr: vec![load_texture("assets/plane.png").await?],
                 sam_txtr: vec![load_texture("assets/sam.png").await?],
                 infantry_txtr: vec![load_texture("assets/infantry_pix.png").await?],
                 scout_txtr: vec![load_texture("assets/scouts.png").await?],
@@ -70,6 +74,8 @@ pub mod Units {
                 rocket_arty_txtr: vec![load_texture("assets/himars.png").await?],
                 apc_txtr: vec![load_texture("assets/apc_pix.png").await?],
                 attack_heli_txtr: vec![load_texture("assets/attack_heli.png").await?],
+                transport_heli_txtr: vec![load_texture("assets/transport_heli.png").await?],
+                plane_txtr: vec![load_texture("assets/plane.png").await?],
                 sam_txtr: vec![load_texture("assets/sam.png").await?],
                 infantry_txtr: vec![load_texture("assets/infantry_pix.png").await?],
                 scout_txtr: vec![load_texture("assets/scouts.png").await?],
@@ -108,6 +114,8 @@ pub mod Units {
         rocket_arty_txtr: Vec<Texture2D>,
         apc_txtr: Vec<Texture2D>,
         attack_heli_txtr: Vec<Texture2D>,
+        transport_heli_txtr: Vec<Texture2D>,
+        plane_txtr: Vec<Texture2D>,
         sam_txtr: Vec<Texture2D>,
         infantry_txtr: Vec<Texture2D>,
         scout_txtr: Vec<Texture2D>,
@@ -137,6 +145,8 @@ pub mod Units {
                 UnitTilesEnum::Scout => &self.scout_txtr[frame_index],
                 UnitTilesEnum::RocketArty => &self.rocket_arty_txtr[frame_index],
                 UnitTilesEnum::APC => &self.apc_txtr[frame_index],
+                UnitTilesEnum::TransportHeli => &self.transport_heli_txtr[frame_index],
+                UnitTilesEnum::Plane => &self.plane_txtr[frame_index],
                 UnitTilesEnum::SAM => &self.sam_txtr[frame_index],
                 UnitTilesEnum::AttackHeli => &self.attack_heli_txtr[frame_index],
                 _ => {
@@ -236,6 +246,32 @@ pub mod Units {
                     allowed_terrains: [true, true, true, true, true, true],
                     visibility_range: 3,
                     prob_to_detect_units: 90,
+                },
+                UnitTilesEnum::TransportHeli => UnitInfo {
+                    unit_id: id_gen.get_new(),
+                    player_id: p_id,
+                    unit_name: "1st transport helicopter".to_owned(),
+                    unit_type: tp,
+                    max_health: 180.0,
+                    health: 180.0,
+                    movement_rate: 4.0,
+                    location: loc,
+                    allowed_terrains: [true, true, true, true, true, true],
+                    visibility_range: 2,
+                    prob_to_detect_units: 80,
+                },
+                UnitTilesEnum::Plane => UnitInfo {
+                    unit_id: id_gen.get_new(),
+                    player_id: p_id,
+                    unit_name: "1st transport plane".to_owned(),
+                    unit_type: tp,
+                    max_health: 220.0,
+                    health: 220.0,
+                    movement_rate: 5.0,
+                    location: loc,
+                    allowed_terrains: [true, true, true, true, true, true],
+                    visibility_range: 4,
+                    prob_to_detect_units: 85,
                 },
                 UnitTilesEnum::SAM => UnitInfo {
                     unit_id: id_gen.get_new(),
@@ -357,15 +393,20 @@ pub mod Units {
             id
         }
 
-        pub fn move_unit(&mut self, start_tile: GridTile, unit_id: usize, new_tile: GridTile) -> bool {
+        pub fn move_unit(
+            &mut self,
+            start_tile: GridTile,
+            unit_id: usize,
+            new_tile: GridTile,
+        ) -> bool {
             if let Some(units_at_tile) = self.units_by_tile.get_mut(&start_tile) {
-                if let Some( mut unit) = units_at_tile.remove(&unit_id) {
+                if let Some(mut unit) = units_at_tile.remove(&unit_id) {
                     unit.location = new_tile;
                     self.units_by_tile
                         .entry(new_tile)
                         .or_default()
                         .insert(unit_id, unit);
-                    
+
                     return true;
                 }
             }
@@ -387,22 +428,6 @@ pub mod Units {
         }
     }
 
-    /*
-        pub enum UnitTilesEnum {
-        Tank,
-        Infantry,
-        Scout,
-        Engineers,
-        APC,
-        RocketArty,
-        Artillery,
-        AttackHeli,
-        TransportHeli,
-        SAM,
-        End,
-    }
-
-         */
     pub struct DamageAssessment {
         damage_matrix: Vec<Vec<f32>>,
     }
@@ -440,7 +465,7 @@ pub mod Units {
             }
         }
     }
-        #[cfg(test)]
+    #[cfg(test)]
     mod tests {
         use super::*;
 
@@ -449,9 +474,12 @@ pub mod Units {
             let mut id_gen = UnitId::new();
             let mut player_units = PlayerUnits::new();
 
-            let unit_id = player_units.add_unit_at(UnitTilesEnum::Tank, &mut id_gen, Entity::Player, (2, 3));
+            let unit_id =
+                player_units.add_unit_at(UnitTilesEnum::Tank, &mut id_gen, Entity::Player, (2, 3));
 
-            let tile_units = player_units.get_units_at((2, 3)).expect("Tile should exist");
+            let tile_units = player_units
+                .get_units_at((2, 3))
+                .expect("Tile should exist");
             assert_eq!(tile_units.len(), 1);
             assert!(tile_units.contains_key(&unit_id));
         }
@@ -461,16 +489,29 @@ pub mod Units {
             let mut id_gen = UnitId::new();
             let mut player_units = PlayerUnits::new();
 
-            let unit_id = player_units.add_unit_at(UnitTilesEnum::Tank, &mut id_gen, Entity::Player, (2, 3));
+            let unit_id =
+                player_units.add_unit_at(UnitTilesEnum::Tank, &mut id_gen, Entity::Player, (2, 3));
             let moved = player_units.move_unit((2, 3), unit_id, (3, 4));
 
-            assert!(moved, "move_unit should succeed when start_tile contains the unit");
-            let source_units = player_units.get_units_at((2, 3)).expect("source tile should exist");
-            assert!(source_units.is_empty(), "old tile should be empty after move");
+            assert!(
+                moved,
+                "move_unit should succeed when start_tile contains the unit"
+            );
+            let source_units = player_units
+                .get_units_at((2, 3))
+                .expect("source tile should exist");
+            assert!(
+                source_units.is_empty(),
+                "old tile should be empty after move"
+            );
 
-            let target_units = player_units.get_units_at((3, 4)).expect("Target tile should exist");
+            let target_units = player_units
+                .get_units_at((3, 4))
+                .expect("Target tile should exist");
             assert_eq!(target_units.len(), 1);
-            let moved_unit = target_units.get(&unit_id).expect("Moved unit should be present");
+            let moved_unit = target_units
+                .get(&unit_id)
+                .expect("Moved unit should be present");
             assert_eq!(moved_unit.location, (3, 4));
         }
 
@@ -479,11 +520,17 @@ pub mod Units {
             let mut id_gen = UnitId::new();
             let mut player_units = PlayerUnits::new();
 
-            let unit_id = player_units.add_unit_at(UnitTilesEnum::Tank, &mut id_gen, Entity::Player, (2, 3));
+            let unit_id =
+                player_units.add_unit_at(UnitTilesEnum::Tank, &mut id_gen, Entity::Player, (2, 3));
             let moved = player_units.move_unit((1, 1), unit_id, (3, 4));
 
-            assert!(!moved, "move_unit should fail when the unit is not present at start_tile");
-            let original_units = player_units.get_units_at((2, 3)).expect("Original tile should still exist");
+            assert!(
+                !moved,
+                "move_unit should fail when the unit is not present at start_tile"
+            );
+            let original_units = player_units
+                .get_units_at((2, 3))
+                .expect("Original tile should still exist");
             assert!(original_units.contains_key(&unit_id));
         }
     }

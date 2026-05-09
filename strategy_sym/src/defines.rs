@@ -2,6 +2,8 @@ pub const TILE_SIZE: (f32, f32) = (40.0, 40.0);
 pub type GridTile = (u16, u16);
 pub type PixelOffset = (f32, f32);
 
+use strum_macros::Display;
+
 #[derive(Clone, Copy)]
 pub enum TerrainTilesEnum {
     Forest,
@@ -31,14 +33,14 @@ impl Entity {
 pub enum InfrastructureEnum {
     Fatory,
     Mines,
+    Airfield,
     Bunkers,
     DefensiveObstacles,
     Road,
-    Airfield,
     End,
 }
 
-#[derive(Clone, Copy, Eq, PartialEq, Hash, Debug)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash, Debug, Display)]
 pub enum UnitTilesEnum {
     Tank,
     Infantry,
@@ -49,6 +51,7 @@ pub enum UnitTilesEnum {
     Artillery,
     AttackHeli,
     TransportHeli,
+    Plane,
     SAM,
     End,
 }

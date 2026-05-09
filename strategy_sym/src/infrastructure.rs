@@ -45,6 +45,7 @@ pub mod infstrt {
             let vct = vec![
                 InfrastuctureTextures::load_default_factory_textures(20).await?,
                 InfrastuctureTextures::load_default_mines_textures().await?,
+                InfrastuctureTextures::load_default_airfield_textures().await?,
             ];
 
             Ok(Box::new(InfrastuctureTextures {
@@ -72,6 +73,14 @@ pub mod infstrt {
         }
         pub async fn load_default_mines_textures() -> Result<TextureContainer, macroquad::Error> {
             let vct = vec![load_texture("assets/mines.png").await?];
+            Ok(TextureContainer {
+                obj_itr: Box::new(TextureContainer::get_first_frame_only()),
+                obj_txtr: vct,
+            })
+        }
+        pub async fn load_default_airfield_textures() -> Result<TextureContainer, macroquad::Error>
+        {
+            let vct = vec![load_texture("assets/airport.png").await?];
             Ok(TextureContainer {
                 obj_itr: Box::new(TextureContainer::get_first_frame_only()),
                 obj_txtr: vct,
@@ -129,7 +138,7 @@ pub mod infstrt {
 
         pub fn get_cost_and_time(unit_type: UnitTilesEnum) -> (usize, usize) {
             match unit_type {
-                UnitTilesEnum::Tank => (100, 5),
+                UnitTilesEnum::Tank => (100, 500),
                 UnitTilesEnum::Infantry => (50, 2),
                 UnitTilesEnum::Scout => (75, 3),
                 UnitTilesEnum::Engineers => (60, 4),
@@ -233,7 +242,10 @@ pub mod infstrt {
                 infr_objects: Vec::<Arc<Mutex<InfrObject>>>::new(),
             }
         }
-        pub fn add_infr_objest(self: &mut InfrastructureContainer, new_infr: Arc<Mutex<InfrObject>>) {
+        pub fn add_infr_objest(
+            self: &mut InfrastructureContainer,
+            new_infr: Arc<Mutex<InfrObject>>,
+        ) {
             self.infr_objects.push(new_infr);
         }
         //add few test infra objects (mines, factory...)
@@ -249,15 +261,30 @@ pub mod infstrt {
                 (2, 2),
                 Entity::Player,
             ))));
+            //test adding to production queue, since the first unit will be produced after 5 iterations, we can check if the iterate infrastructure function is working properly
+            self.infr_objects
+                .last()
+                .unwrap()
+                .lock()
+                .unwrap()
+                .unit_production
+                .as_mut()
+                .unwrap()
+                .add_to_queue(UnitTilesEnum::Tank);
+
+            self.infr_objects.push(Arc::new(Mutex::new(InfrObject::new(
+                InfrastructureEnum::Airfield,
+                (2, 4),
+                Entity::Player,
+            ))));
+
             self.infr_objects.push(Arc::new(Mutex::new(InfrObject::new(
                 InfrastructureEnum::Mines,
                 (19, 5),
                 Entity::AI,
             ))));
         }
-        pub async fn iterate_infrastructure(
-            self: &mut InfrastructureContainer,
-        ) -> Vec<Box<UnitInfo>> {
+        pub fn iterate_infrastructure(self: &mut InfrastructureContainer) -> Vec<Box<UnitInfo>> {
             let mut produced_units = Vec::new();
 
             for infr_arc in self.infr_objects.iter_mut() {

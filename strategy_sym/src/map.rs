@@ -38,7 +38,8 @@ pub mod terrain {
                         location: (y as u16, x as u16),
                         visible_units: [HashSet::<usize>::new(), HashSet::<usize>::new()],
                         hidden_units: [HashSet::<usize>::new(), HashSet::<usize>::new()],
-                        infrastruct: HashMap::<InfrastructureEnum, Arc<Mutex<infstrt::InfrObject>>>::new(),
+                        infrastruct:
+                            HashMap::<InfrastructureEnum, Arc<Mutex<infstrt::InfrObject>>>::new(),
                     })
                     .collect();
                 m.push(row);
@@ -79,6 +80,16 @@ pub mod terrain {
             None
         }
 
+        pub fn get_tile_info(self: &TerrainGrid, tile: GridTile) -> Option<&TileInfo> {
+            if (tile.1 as usize) < self.map.len()
+                && (tile.0 as usize) < self.map[tile.1 as usize].len()
+            {
+                Some(&self.map[tile.1 as usize][tile.0 as usize])
+            } else {
+                None
+            }
+        }
+
         pub fn get_titletype_for_cord(
             self: &mut TerrainGrid,
             tile: GridTile,
@@ -88,6 +99,89 @@ pub mod terrain {
             }
             None
         }
+
+        pub fn has_infrastructure(
+            self: &TerrainGrid,
+            tile: GridTile,
+            infra_type: InfrastructureEnum,
+        ) -> bool {
+            if (tile.1 as usize) < self.map.len()
+                && (tile.0 as usize) < self.map[tile.1 as usize].len()
+            {
+                self.map[tile.1 as usize][tile.0 as usize]
+                    .infrastruct
+                    .contains_key(&infra_type)
+            } else {
+                false
+            }
+        }
+
+        pub fn enqueue_unit_in_factory(
+            self: &mut TerrainGrid,
+            tile: GridTile,
+            unit_type: UnitTilesEnum,
+        ) -> bool {
+            if (tile.1 as usize) < self.map.len()
+                && (tile.0 as usize) < self.map[tile.1 as usize].len()
+            {
+                if let Some(factory) = self.map[tile.1 as usize][tile.0 as usize]
+                    .infrastruct
+                    .get(&InfrastructureEnum::Fatory)
+                {
+                    if let Some(unit_production) = factory.lock().unwrap().unit_production.as_mut()
+                    {
+                        unit_production.add_to_queue(unit_type);
+                        return true;
+                    }
+                }
+            }
+            false
+        }
+
+        pub fn get_factory_allowed_units(&self, tile: GridTile) -> Vec<UnitTilesEnum> {
+            if let Some(tile_info) = self.get_tile_info(tile) {
+                if let Some(factory) = tile_info.infrastruct.get(&InfrastructureEnum::Fatory) {
+                    if let Some(unit_prod) = &factory.lock().unwrap().unit_production {
+                        return unit_prod.allowed_units.iter().cloned().collect();
+                    }
+                }
+            }
+            Vec::new()
+        }
+
+        pub fn enqueue_unit_in_airfield(
+            self: &mut TerrainGrid,
+            tile: GridTile,
+            unit_type: UnitTilesEnum,
+        ) -> bool {
+            if (tile.1 as usize) < self.map.len()
+                && (tile.0 as usize) < self.map[tile.1 as usize].len()
+            {
+                if let Some(airfield) = self.map[tile.1 as usize][tile.0 as usize]
+                    .infrastruct
+                    .get(&InfrastructureEnum::Airfield)
+                {
+                    if let Some(unit_production) = airfield.lock().unwrap().unit_production.as_mut()
+                    {
+                        unit_production.add_to_queue(unit_type);
+                        return true;
+                    }
+                }
+            }
+            false
+        }
+
+        pub fn get_airfield_allowed_units(&self, tile: GridTile) -> Vec<UnitTilesEnum> {
+            if let Some(tile_info) = self.get_tile_info(tile) {
+                if let Some(airfield) = tile_info.infrastruct.get(&InfrastructureEnum::Airfield) {
+                    if let Some(unit_prod) = &airfield.lock().unwrap().unit_production {
+                        return unit_prod.allowed_units.iter().cloned().collect();
+                    }
+                }
+            }
+            Vec::new()
+        }
+
         pub fn char_code_terrain_enum(c: char) -> TerrainTilesEnum {
             match c {
                 'F' => TerrainTilesEnum::Forest,
@@ -261,7 +355,7 @@ pub mod terrain {
         pub fn add_infr(self: &mut TerrainGrid, new_infr: Arc<Mutex<infstrt::InfrObject>>) {
             let tp = new_infr.lock().unwrap().infr_type;
             let loc = new_infr.lock().unwrap().location;
-            
+
             if let Some(tile_info) = self.get_title_for_cord(loc) {
                 tile_info.infrastruct.insert(tp, new_infr);
             }
