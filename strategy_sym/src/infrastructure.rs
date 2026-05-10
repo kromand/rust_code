@@ -280,6 +280,12 @@ pub mod infstrt {
 
             self.infr_objects.push(Arc::new(Mutex::new(InfrObject::new(
                 InfrastructureEnum::Mines,
+                (2, 5),
+                Entity::Player,
+            ))));
+
+            self.infr_objects.push(Arc::new(Mutex::new(InfrObject::new(
+                InfrastructureEnum::Mines,
                 (19, 5),
                 Entity::AI,
             ))));
