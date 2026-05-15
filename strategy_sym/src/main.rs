@@ -44,13 +44,15 @@ pub fn process_unit_movement(
     if unit.location != new_pos && unit.allowed_move(map.get_titletype_for_cord(new_pos).unwrap()) {
         let (move_successfull, mine_damage) =
             map.move_unit_to_new_tile(unit.unit_id, unit.location, new_pos, Entity::Player);
-        if mine_damage {
-            if unit.assess_damage(random::random_nums::generate(100)) {
-                //unit dead. Remove from map and player units
-                map.remove_unit(unit.unit_id, unit.location, Entity::Player);
 
-                return MoveResult::UnitDestroyed;
-            }
+        if mine_damage
+            && !is_air_unit(unit.unit_type)
+            && unit.assess_damage(random::random_nums::generate(100))
+        {
+            //unit dead. Remove from map and player units
+            map.remove_unit(unit.unit_id, unit.location, Entity::Player);
+
+            return MoveResult::UnitDestroyed;
         }
         if move_successfull {
             unit.location = new_pos;
@@ -168,10 +170,7 @@ pub async fn draw_infrastructure(textures: &mut Textures, infra_vector: &Infrast
 }
 
 pub fn init_player_units(id_gen: &mut UnitId) -> PlayerUnits {
-    let mut result = PlayerUnits::new();
-    //result.add_unit_at(UnitTilesEnum::Tank, id_gen, Entity::Player, (2, 3));
-    //result.add_unit_at(UnitTilesEnum::APC, id_gen, Entity::Player, (3, 3));
-    result
+    PlayerUnits::new()
 }
 
 /// Adds a unit to both the player_units_map and the map
@@ -327,7 +326,7 @@ async fn main() {
                 draw_infrastructure(&mut textures, &infr_container).await;
 
                 //checking for new units to add to the map from infrastructure and adding them to player units if found
-                let new_units = infr_container.iterate_infrastructure();
+                let new_units = infr_container.iterate_infrastructure(&mut id_gen);
                 for unit in new_units {
                     add_unit(&mut player_units_map, &mut map, *unit);
                 }
@@ -336,7 +335,7 @@ async fn main() {
 
                 draw_visible_enemy_units(&mut map, &enemy_units, &mut textures, false).await;
                 //right click popup menu
-                menu::show_popup_menu(&mut mouse, &mut menu_content, &mut map);
+                menu::show_popup_menu(&mut mouse, &mut menu_content, &mut map, &player_units_map);
             } //game state
         }
 

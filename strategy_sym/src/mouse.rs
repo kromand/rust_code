@@ -12,6 +12,7 @@ pub struct MouseTracker {
     popup_position: PixelOffset,
     popup_position_changed: bool,
     popup_id: Option<u64>,
+    popup_bounds: Option<(f32, f32, f32, f32)>, // (x, y, width, height)
 }
 
 impl MouseTracker {
@@ -24,6 +25,7 @@ impl MouseTracker {
             popup_position: (0.0, 0.0),
             popup_position_changed: false,
             popup_id: None,
+            popup_bounds: None,
         }
     }
 
@@ -32,6 +34,15 @@ impl MouseTracker {
         let mouse_tile = self.get_cursor_pointed_tile();
 
         if is_mouse_button_down(MouseButton::Left) {
+            // Check if click is outside popup bounds and hide it
+            if self.show_popup {
+                if let Some((px, py, pw, ph)) = self.popup_bounds {
+                    if mouse_x < px || mouse_x > px + pw || mouse_y < py || mouse_y > py + ph {
+                        self.show_popup = false;
+                    }
+                }
+            }
+
             if let Some(u) = units.get_units_at(mouse_tile) {
                 if !u.is_empty() && self.start_cursor_position.is_none() {
                     //get first unit id from the tile and set it as selected, also set start cursor position for dragging
@@ -89,6 +100,10 @@ impl MouseTracker {
 
     pub fn set_popup_visible(self: &mut MouseTracker, visible: bool) {
         self.show_popup = visible;
+    }
+
+    pub fn set_popup_bounds(self: &mut MouseTracker, x: f32, y: f32, width: f32, height: f32) {
+        self.popup_bounds = Some((x, y, width, height));
     }
 
     pub fn is_dragging(self: &MouseTracker) -> bool {

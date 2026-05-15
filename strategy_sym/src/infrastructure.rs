@@ -46,6 +46,7 @@ pub mod infstrt {
                 InfrastuctureTextures::load_default_factory_textures(20).await?,
                 InfrastuctureTextures::load_default_mines_textures().await?,
                 InfrastuctureTextures::load_default_airfield_textures().await?,
+                InfrastuctureTextures::load_default_bunkers_textures().await?,
             ];
 
             Ok(Box::new(InfrastuctureTextures {
@@ -80,7 +81,14 @@ pub mod infstrt {
         }
         pub async fn load_default_airfield_textures() -> Result<TextureContainer, macroquad::Error>
         {
-            let vct = vec![load_texture("assets/airport.png").await?];
+            let vct = vec![load_texture("assets/airport_ai.png").await?];
+            Ok(TextureContainer {
+                obj_itr: Box::new(TextureContainer::get_first_frame_only()),
+                obj_txtr: vct,
+            })
+        }
+        pub async fn load_default_bunkers_textures() -> Result<TextureContainer, macroquad::Error> {
+            let vct = vec![load_texture("assets/bunker_with_wire.png").await?];
             Ok(TextureContainer {
                 obj_itr: Box::new(TextureContainer::get_first_frame_only()),
                 obj_txtr: vct,
@@ -147,6 +155,7 @@ pub mod infstrt {
                 UnitTilesEnum::Artillery => (130, 6),
                 UnitTilesEnum::AttackHeli => (200, 8),
                 UnitTilesEnum::TransportHeli => (180, 7),
+                UnitTilesEnum::Plane => (180, 7),
                 _ => unreachable!("Unhandled unit type in get_cost_and_time"), // Default case for End or any undefined unit
             }
         }
@@ -154,6 +163,7 @@ pub mod infstrt {
             self: &mut UnitProduction,
             location: GridTile,
             owner: Entity,
+            id_gen: &mut UnitId,
         ) -> Option<Box<UnitInfo>> {
             if self.production_queue.is_empty() {
                 return None;
@@ -163,14 +173,7 @@ pub mod infstrt {
                 None
             } else {
                 let unit_type = self.get_next_in_queue().unwrap();
-                let mut id_gen = UnitId::new();
-
-                Some(Box::new(UnitInfo::new(
-                    unit_type,
-                    &mut id_gen,
-                    owner,
-                    location,
-                )))
+                Some(Box::new(UnitInfo::new(unit_type, id_gen, owner, location)))
             }
         }
     }
@@ -194,15 +197,7 @@ pub mod infstrt {
                     owner: own,
                     health: 100,
                     detected: true,
-                    unit_production: Some(UnitProduction::new(HashSet::from([
-                        UnitTilesEnum::Tank,
-                        UnitTilesEnum::Infantry,
-                        UnitTilesEnum::Scout,
-                        UnitTilesEnum::Engineers,
-                        UnitTilesEnum::APC,
-                        UnitTilesEnum::RocketArty,
-                        UnitTilesEnum::Artillery,
-                    ]))),
+                    unit_production: Some(UnitProduction::new(HashSet::from(LAND_UNITS))),
                 }
             } else if obj_type == InfrastructureEnum::Airfield {
                 InfrObject {
@@ -212,10 +207,7 @@ pub mod infstrt {
                     owner: own,
                     health: 100,
                     detected: true,
-                    unit_production: Some(UnitProduction::new(HashSet::from([
-                        UnitTilesEnum::AttackHeli,
-                        UnitTilesEnum::TransportHeli,
-                    ]))),
+                    unit_production: Some(UnitProduction::new(HashSet::from(AIR_UNITS))),
                 }
             } else {
                 InfrObject {
@@ -273,6 +265,12 @@ pub mod infstrt {
                 .add_to_queue(UnitTilesEnum::Tank);
 
             self.infr_objects.push(Arc::new(Mutex::new(InfrObject::new(
+                InfrastructureEnum::Bunker,
+                (2, 3),
+                Entity::Player,
+            ))));
+
+            self.infr_objects.push(Arc::new(Mutex::new(InfrObject::new(
                 InfrastructureEnum::Airfield,
                 (2, 4),
                 Entity::Player,
@@ -290,7 +288,10 @@ pub mod infstrt {
                 Entity::AI,
             ))));
         }
-        pub fn iterate_infrastructure(self: &mut InfrastructureContainer) -> Vec<Box<UnitInfo>> {
+        pub fn iterate_infrastructure(
+            self: &mut InfrastructureContainer,
+            id_gen: &mut UnitId,
+        ) -> Vec<Box<UnitInfo>> {
             let mut produced_units = Vec::new();
 
             for infr_arc in self.infr_objects.iter_mut() {
@@ -301,7 +302,7 @@ pub mod infstrt {
                 if let Some(unit_prod) = &mut infr.unit_production {
                     // Call update_production and handle the result as needed
 
-                    let new_unit = unit_prod.update_production(loc, own);
+                    let new_unit = unit_prod.update_production(loc, own, id_gen);
                     if let Some(unit_info) = new_unit {
                         // Handle the newly produced unit (e.g., add it to the game state)
                         produced_units.push(unit_info);

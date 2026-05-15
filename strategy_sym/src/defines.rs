@@ -34,7 +34,7 @@ pub enum InfrastructureEnum {
     Fatory,
     Mines,
     Airfield,
-    Bunkers,
+    Bunker,
     DefensiveObstacles,
     Road,
     End,
@@ -61,4 +61,24 @@ pub enum MoveResult {
     Success,
     InvalidMove,
     UnitDestroyed,
+}
+
+pub const AIR_UNITS:[UnitTilesEnum; 3] = [
+                    UnitTilesEnum::AttackHeli,
+                    UnitTilesEnum::TransportHeli,
+                    UnitTilesEnum::Plane,
+                ];
+
+pub const LAND_UNITS:[UnitTilesEnum; 7] = [
+                        UnitTilesEnum::Tank,
+                        UnitTilesEnum::Infantry,
+                        UnitTilesEnum::Scout,
+                        UnitTilesEnum::Engineers,
+                        UnitTilesEnum::APC,
+                        UnitTilesEnum::RocketArty,
+                        UnitTilesEnum::Artillery,
+                ];
+
+pub fn is_air_unit(unit_type: UnitTilesEnum) -> bool {
+    AIR_UNITS.contains(&unit_type)
 }

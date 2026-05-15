@@ -35,8 +35,9 @@ pub mod Units {
             Ok(UnitTileTextures {
                 tank_txtr: vec![load_texture("assets/tank_pix.png").await?],
                 rocket_arty_txtr: vec![load_texture("assets/himars.png").await?],
+                artillery_txtr: vec![load_texture("assets/ai_arty.png").await?],
                 apc_txtr: vec![load_texture("assets/apc_pix.png").await?],
-                attack_heli_txtr: vec![load_texture("assets/attack_heli.png").await?],
+                attack_heli_txtr: vec![load_texture("assets/ai_heli.png").await?],
                 transport_heli_txtr: vec![load_texture("assets/transport_heli.png").await?],
                 plane_txtr: vec![load_texture("assets/plane.png").await?],
                 sam_txtr: vec![load_texture("assets/sam.png").await?],
@@ -49,9 +50,19 @@ pub mod Units {
             frame_count: usize,
             frame_repeat_rate: usize,
         ) -> Result<UnitTileTextures, macroquad::Error> {
+            let mut vct = Vec::<Box<dyn Iterator<Item = usize>>>::new();
+
+            for _ in 0..(UnitTilesEnum::End as usize) {
+                vct.push(Box::new(UnitTileTextures::get_repeat_seq_it(
+                    frame_count,
+                    frame_repeat_rate,
+                )));
+            }
+
             Ok(UnitTileTextures {
                 tank_txtr: vec![load_texture("assets/tank_pix.png").await?],
                 rocket_arty_txtr: vec![load_texture("assets/himars.png").await?],
+                artillery_txtr: vec![load_texture("assets/ai_arty.png").await?],
                 apc_txtr: vec![load_texture("assets/apc_pix.png").await?],
                 attack_heli_txtr: vec![load_texture("assets/attack_heli.png").await?],
                 transport_heli_txtr: vec![load_texture("assets/transport_heli.png").await?],
@@ -59,19 +70,26 @@ pub mod Units {
                 sam_txtr: vec![load_texture("assets/sam.png").await?],
                 infantry_txtr: vec![load_texture("assets/infantry_pix.png").await?],
                 scout_txtr: vec![load_texture("assets/scouts.png").await?],
-                frame_itr: vec![Box::new(UnitTileTextures::get_repeat_seq_it(
-                    frame_count,
-                    frame_repeat_rate,
-                ))],
+                frame_itr: vct,
             })
         }
         pub async fn load_destruction_textures(
             frame_count: usize,
             frame_repeat_rate: usize,
         ) -> Result<UnitTileTextures, macroquad::Error> {
+            let mut vct = Vec::<Box<dyn Iterator<Item = usize>>>::new();
+
+            for _ in 0..(UnitTilesEnum::End as usize) {
+                vct.push(Box::new(UnitTileTextures::get_repeat_seq_it(
+                    frame_count,
+                    frame_repeat_rate,
+                )));
+            }
+
             Ok(UnitTileTextures {
                 tank_txtr: vec![load_texture("assets/tank_pix.png").await?],
                 rocket_arty_txtr: vec![load_texture("assets/himars.png").await?],
+                artillery_txtr: vec![load_texture("assets/ai_arty.png").await?],
                 apc_txtr: vec![load_texture("assets/apc_pix.png").await?],
                 attack_heli_txtr: vec![load_texture("assets/attack_heli.png").await?],
                 transport_heli_txtr: vec![load_texture("assets/transport_heli.png").await?],
@@ -79,10 +97,7 @@ pub mod Units {
                 sam_txtr: vec![load_texture("assets/sam.png").await?],
                 infantry_txtr: vec![load_texture("assets/infantry_pix.png").await?],
                 scout_txtr: vec![load_texture("assets/scouts.png").await?],
-                frame_itr: vec![Box::new(UnitTileTextures::get_repeat_seq_it(
-                    frame_count,
-                    frame_repeat_rate,
-                ))],
+                frame_itr: vct,
             })
         }
         pub async fn new() -> Result<Box<AnimateUnit>, macroquad::Error> {
@@ -112,6 +127,7 @@ pub mod Units {
     pub struct UnitTileTextures {
         tank_txtr: Vec<Texture2D>,
         rocket_arty_txtr: Vec<Texture2D>,
+        artillery_txtr: Vec<Texture2D>,
         apc_txtr: Vec<Texture2D>,
         attack_heli_txtr: Vec<Texture2D>,
         transport_heli_txtr: Vec<Texture2D>,
@@ -144,6 +160,7 @@ pub mod Units {
                 UnitTilesEnum::Infantry => &self.infantry_txtr[frame_index],
                 UnitTilesEnum::Scout => &self.scout_txtr[frame_index],
                 UnitTilesEnum::RocketArty => &self.rocket_arty_txtr[frame_index],
+                UnitTilesEnum::Artillery => &self.artillery_txtr[frame_index],
                 UnitTilesEnum::APC => &self.apc_txtr[frame_index],
                 UnitTilesEnum::TransportHeli => &self.transport_heli_txtr[frame_index],
                 UnitTilesEnum::Plane => &self.plane_txtr[frame_index],
@@ -159,21 +176,34 @@ pub mod Units {
 
     pub struct UnitId {
         next_id: AtomicUsize,
+        unit_type_counts: HashMap<UnitTilesEnum, usize>,
     }
     impl UnitId {
         pub fn new() -> UnitId {
             UnitId {
                 next_id: AtomicUsize::new(0),
+                unit_type_counts: HashMap::new(),
             }
         }
         pub fn get_new(self: &mut UnitId) -> usize {
             self.next_id.fetch_add(1, Ordering::Relaxed)
         }
+        pub fn get_next_name(&mut self, tp: UnitTilesEnum) -> String {
+            let count = self.unit_type_counts.entry(tp).or_insert(0);
+            *count += 1;
+            let ordinal = match *count % 10 {
+                1 if *count % 100 != 11 => "st",
+                2 if *count % 100 != 12 => "nd",
+                3 if *count % 100 != 13 => "rd",
+                _ => "th",
+            };
+            format!("{}{}_{}", count, ordinal, tp)
+        }
     }
     pub struct UnitInfo {
         pub unit_id: usize,
         pub player_id: Entity,
-        unit_name: String,
+        pub unit_name: String,
         pub unit_type: UnitTilesEnum,
         max_health: f32,
         pub health: f32,
@@ -211,7 +241,7 @@ pub mod Units {
                 UnitTilesEnum::Tank => UnitInfo {
                     unit_id: id_gen.get_new(),
                     player_id: p_id,
-                    unit_name: "1st armored".to_owned(),
+                    unit_name: id_gen.get_next_name(tp),
                     unit_type: tp,
                     max_health: 200.0,
                     health: 200.0,
@@ -224,7 +254,7 @@ pub mod Units {
                 UnitTilesEnum::APC => UnitInfo {
                     unit_id: id_gen.get_new(),
                     player_id: p_id,
-                    unit_name: "1st APC".to_owned(),
+                    unit_name: id_gen.get_next_name(tp),
                     unit_type: tp,
                     max_health: 200.0,
                     health: 200.0,
@@ -234,10 +264,49 @@ pub mod Units {
                     visibility_range: 1,
                     prob_to_detect_units: 50,
                 },
+                UnitTilesEnum::Artillery => UnitInfo {
+                    unit_id: id_gen.get_new(),
+                    player_id: p_id,
+                    unit_name: id_gen.get_next_name(tp),
+                    unit_type: tp,
+                    max_health: 160.0,
+                    health: 160.0,
+                    movement_rate: 2.0,
+                    location: loc,
+                    allowed_terrains: [true, false, true, false, true, true],
+                    visibility_range: 2,
+                    prob_to_detect_units: 40,
+                },
+                UnitTilesEnum::RocketArty => UnitInfo {
+                    unit_id: id_gen.get_new(),
+                    player_id: p_id,
+                    unit_name: id_gen.get_next_name(tp),
+                    unit_type: tp,
+                    max_health: 180.0,
+                    health: 180.0,
+                    movement_rate: 2.0,
+                    location: loc,
+                    allowed_terrains: [true, false, true, false, true, true],
+                    visibility_range: 3,
+                    prob_to_detect_units: 45,
+                },
+                UnitTilesEnum::Engineers => UnitInfo {
+                    unit_id: id_gen.get_new(),
+                    player_id: p_id,
+                    unit_name: id_gen.get_next_name(tp),
+                    unit_type: tp,
+                    max_health: 80.0,
+                    health: 80.0,
+                    movement_rate: 1.0,
+                    location: loc,
+                    allowed_terrains: [true, false, false, true, true, true],
+                    visibility_range: 1,
+                    prob_to_detect_units: 60,
+                },
                 UnitTilesEnum::AttackHeli => UnitInfo {
                     unit_id: id_gen.get_new(),
                     player_id: p_id,
-                    unit_name: "1st attack helicopter".to_owned(),
+                    unit_name: id_gen.get_next_name(tp),
                     unit_type: tp,
                     max_health: 200.0,
                     health: 200.0,
@@ -250,7 +319,7 @@ pub mod Units {
                 UnitTilesEnum::TransportHeli => UnitInfo {
                     unit_id: id_gen.get_new(),
                     player_id: p_id,
-                    unit_name: "1st transport helicopter".to_owned(),
+                    unit_name: id_gen.get_next_name(tp),
                     unit_type: tp,
                     max_health: 180.0,
                     health: 180.0,
@@ -263,7 +332,7 @@ pub mod Units {
                 UnitTilesEnum::Plane => UnitInfo {
                     unit_id: id_gen.get_new(),
                     player_id: p_id,
-                    unit_name: "1st transport plane".to_owned(),
+                    unit_name: id_gen.get_next_name(tp),
                     unit_type: tp,
                     max_health: 220.0,
                     health: 220.0,
@@ -276,7 +345,7 @@ pub mod Units {
                 UnitTilesEnum::SAM => UnitInfo {
                     unit_id: id_gen.get_new(),
                     player_id: p_id,
-                    unit_name: "SAM".to_owned(),
+                    unit_name: id_gen.get_next_name(tp),
                     unit_type: tp,
                     max_health: 200.0,
                     health: 200.0,
@@ -289,7 +358,7 @@ pub mod Units {
                 UnitTilesEnum::Infantry => UnitInfo {
                     unit_id: id_gen.get_new(),
                     player_id: p_id,
-                    unit_name: "1st infantry".to_owned(),
+                    unit_name: id_gen.get_next_name(tp),
                     unit_type: tp,
                     max_health: 100.0,
                     health: 100.0,
@@ -302,7 +371,7 @@ pub mod Units {
                 UnitTilesEnum::Scout => UnitInfo {
                     unit_id: id_gen.get_new(),
                     player_id: p_id,
-                    unit_name: "1st scout".to_owned(),
+                    unit_name: id_gen.get_next_name(tp),
                     unit_type: tp,
                     max_health: 50.0,
                     health: 50.0,
