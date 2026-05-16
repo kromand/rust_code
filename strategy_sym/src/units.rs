@@ -431,22 +431,36 @@ pub mod Units {
         }
     }
 
+    #[derive(Default)]
+    pub struct UnitStack {
+        pub units: HashMap<usize, UnitInfo>,
+        pub top: Option<usize>,
+    }
+    impl UnitStack {
+        pub fn new() -> UnitStack {
+            UnitStack {
+                units: HashMap::<usize, UnitInfo>::new(),
+                top: None,
+            }
+        }
+    }
     pub struct PlayerUnits {
-        pub units_by_tile: HashMap<GridTile, HashMap<usize, UnitInfo>>,
+        pub units_by_tile: HashMap<GridTile, UnitStack>,
     }
 
     impl PlayerUnits {
         pub fn new() -> PlayerUnits {
             PlayerUnits {
-                units_by_tile: HashMap::<GridTile, HashMap<usize, UnitInfo>>::new(),
+                units_by_tile: HashMap::<GridTile, UnitStack>::new(),
             }
         }
 
         pub fn add_unit(&mut self, unit: UnitInfo) {
-            self.units_by_tile
-                .entry(unit.location)
-                .or_default()
-                .insert(unit.unit_id, unit);
+            let mut unit_stack = self.units_by_tile.entry(unit.location).or_default();
+            if unit_stack.units.is_empty() {
+                unit_stack.top = Some(unit.unit_id);
+            }
+            unit_stack.units.insert(unit.unit_id, unit);
         }
 
         pub fn add_unit_at(
@@ -469,11 +483,12 @@ pub mod Units {
             new_tile: GridTile,
         ) -> bool {
             if let Some(units_at_tile) = self.units_by_tile.get_mut(&start_tile) {
-                if let Some(mut unit) = units_at_tile.remove(&unit_id) {
+                if let Some(mut unit) = units_at_tile.units.remove(&unit_id) {
                     unit.location = new_tile;
                     self.units_by_tile
                         .entry(new_tile)
                         .or_default()
+                        .units
                         .insert(unit_id, unit);
 
                     return true;
@@ -484,12 +499,12 @@ pub mod Units {
         }
 
         pub fn get_units_at(&self, tile: GridTile) -> Option<&HashMap<usize, UnitInfo>> {
-            self.units_by_tile.get(&tile)
+            self.units_by_tile.get(&tile).map(|stack| &stack.units)
         }
 
         pub fn remove_unit(&mut self, tile: GridTile, unit_id: usize) -> bool {
             if let Some(units_at_tile) = self.units_by_tile.get_mut(&tile) {
-                if units_at_tile.remove(&unit_id).is_some() {
+                if units_at_tile.units.remove(&unit_id).is_some() {
                     return true;
                 }
             }
@@ -532,6 +547,12 @@ pub mod Units {
             DamageAssessment {
                 damage_matrix: dmg_vec,
             }
+        }
+
+        pub fn damage_multiplier(&self, source: UnitTilesEnum, target: UnitTilesEnum) -> f32 {
+            // Return the multiplier from the damage matrix for given source and target unit types.
+            // Assumes `damage_matrix` has been initialized with length >= UnitTilesEnum::End.
+            self.damage_matrix[source as usize][target as usize]
         }
     }
     #[cfg(test)]

@@ -187,11 +187,11 @@ pub async fn draw_player_units(
     player_units_map: &PlayerUnits,
     excl: Option<GridTile>,
 ) {
-    for (tile, units) in &player_units_map.units_by_tile {
+    for (tile, unit_stack) in &player_units_map.units_by_tile {
         if excl.is_some() && excl.unwrap() == *tile {
             continue;
         }
-        for unit in units.values() {
+        for unit in unit_stack.units.values() {
             draw_player_unit(unit, textures, unit.location).await;
         }
     }
@@ -211,7 +211,7 @@ pub async fn handle_unit_interaction(
         if let Some(unit) = player_units_map
             .units_by_tile
             .get(&draw_unit_exception.unwrap())
-            .and_then(|units| units.get(&id))
+            .and_then(|units_stack| units_stack.units.get(&id))
         {
             paint_tile_at_pixel(
                 pixel,
@@ -233,6 +233,7 @@ pub async fn handle_unit_interaction(
                 .units_by_tile
                 .get_mut(&start_pos)
                 .unwrap()
+                .units
                 .get_mut(&id)
             {
                 match process_unit_movement(new_position, unit, map) {

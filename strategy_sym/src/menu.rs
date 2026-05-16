@@ -242,9 +242,9 @@ fn render_popup_unit_menu(
     player_units: &PlayerUnits,
     grid_tile: (u16, u16),
 ) {
-    if let Some(units) = player_units.units_by_tile.get(&grid_tile) {
+    if let Some(unit_stack) = player_units.units_by_tile.get(&grid_tile) {
         let mut y_offset = 30.0;
-        for unit in units.values() {
+        for unit in unit_stack.units.values() {
             if ui.button(vec2(10.0, y_offset), unit.unit_name.as_str()) {
                 // TODO: perhaps select the unit or something
                 mouse.set_popup_visible(false);
