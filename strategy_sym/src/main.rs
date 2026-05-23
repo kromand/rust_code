@@ -3,6 +3,7 @@ mod defines;
 mod draw;
 mod infrastructure;
 mod map;
+mod mcp_server;
 mod menu;
 mod mouse;
 mod random;
@@ -289,6 +290,7 @@ async fn main() {
         (screen_height() / TILE_SIZE.1) as u16,
     );
 
+    let _mcp_server = mcp_server::start_mcp_server();
     let mut mouse = MouseTracker::new();
     let mut menu_content: MenuType = MenuType::Main;
 

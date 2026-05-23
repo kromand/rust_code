@@ -16,10 +16,38 @@ pub mod Units {
     pub struct AnimateUnit {
         default: UnitTileTextures,
         movement: UnitTileTextures,
+        damage: UnitTileTextures,
         destruction: UnitTileTextures,
     }
     impl AnimateUnit {
         pub async fn load_default_textures(
+            frame_count: usize,
+            frame_repeat_rate: usize,
+        ) -> Result<UnitTileTextures, macroquad::Error> {
+            let mut vct = Vec::<Box<dyn Iterator<Item = usize>>>::new();
+
+            for _ in 0..(UnitTilesEnum::End as usize) {
+                vct.push(Box::new(UnitTileTextures::get_repeat_seq_it(
+                    frame_count,
+                    frame_repeat_rate,
+                )));
+            }
+
+            Ok(UnitTileTextures {
+                tank_txtr: vec![load_texture("assets/tank_pix.png").await?],
+                rocket_arty_txtr: vec![load_texture("assets/himars.png").await?],
+                artillery_txtr: vec![load_texture("assets/ai_arty.png").await?],
+                apc_txtr: vec![load_texture("assets/apc_pix.png").await?],
+                attack_heli_txtr: vec![load_texture("assets/ai_heli.png").await?],
+                transport_heli_txtr: vec![load_texture("assets/transport_heli.png").await?],
+                plane_txtr: vec![load_texture("assets/plane.png").await?],
+                sam_txtr: vec![load_texture("assets/sam.png").await?],
+                infantry_txtr: vec![load_texture("assets/infantry_pix.png").await?],
+                scout_txtr: vec![load_texture("assets/scouts.png").await?],
+                frame_itr: vct,
+            })
+        }
+        pub async fn load_damage_textures(
             frame_count: usize,
             frame_repeat_rate: usize,
         ) -> Result<UnitTileTextures, macroquad::Error> {
@@ -104,6 +132,7 @@ pub mod Units {
             Ok(Box::new(AnimateUnit {
                 default: AnimateUnit::load_default_textures(1, 1).await?,
                 movement: AnimateUnit::load_movement_textures(1, 1).await?,
+                damage: AnimateUnit::load_damage_textures(1, 1).await?,
                 destruction: AnimateUnit::load_destruction_textures(1, 1).await?,
             }))
         }
