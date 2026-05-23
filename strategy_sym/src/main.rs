@@ -85,7 +85,7 @@ pub async fn draw_visible_enemy_units(
                     TILE_SIZE,
                     textures
                         .units
-                        .get_texture(unit.unit_type, TextureType::Default),
+                        .get_texture(unit.unit_type, health_to_texture_type(unit.health as f32 / unit.max_health as f32)),
                     match unit.player_id {
                         Entity::Player => false,
                         Entity::AI => true,
@@ -113,7 +113,7 @@ pub async fn draw_player_unit(unit: &UnitInfo, textures: &mut Textures, cur_posi
         TILE_SIZE,
         textures
             .units
-            .get_texture(unit.unit_type, TextureType::Default),
+            .get_texture(unit.unit_type, health_to_texture_type(unit.health/unit.max_health)),
         match unit.player_id {
             Entity::Player => false,
             Entity::AI => true,
@@ -219,7 +219,7 @@ pub async fn handle_unit_interaction(
                 TILE_SIZE,
                 textures
                     .units
-                    .get_texture(unit.unit_type, TextureType::Default),
+                    .get_texture(unit.unit_type, health_to_texture_type(unit.health / unit.max_health)    ),
                 false,
             )
             .await;

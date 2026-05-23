@@ -10,8 +10,16 @@ pub mod Units {
     pub enum TextureType {
         Default,
         Moving,
+        Damage,
         Destruction,
         End,
+    }
+    pub fn health_to_texture_type(health_ratio: f32) -> TextureType {
+        if health_ratio > 0.5 {
+            TextureType::Default
+        } else {
+            TextureType::Damage
+        }
     }
     pub struct AnimateUnit {
         default: UnitTileTextures,
@@ -48,29 +56,49 @@ pub mod Units {
             })
         }
         pub async fn load_damage_textures(
-            frame_count: usize,
             frame_repeat_rate: usize,
         ) -> Result<UnitTileTextures, macroquad::Error> {
-            let mut vct = Vec::<Box<dyn Iterator<Item = usize>>>::new();
+            // Load textures first
+            let tank_txtr = vec![load_texture("assets/tank_pix.png").await?];
+            let rocket_arty_txtr = vec![load_texture("assets/himars.png").await?];
+            let artillery_txtr = vec![load_texture("assets/ai_arty.png").await?];
+            let apc_txtr = vec![load_texture("assets/apc_dmg_1.png").await?,
+                load_texture("assets/apc_dmg_2.png").await?,
+                load_texture("assets/apc_dmg_3.png").await?,
+                load_texture("assets/apc_dmg_4.png").await?,];
 
-            for _ in 0..(UnitTilesEnum::End as usize) {
-                vct.push(Box::new(UnitTileTextures::get_repeat_seq_it(
-                    frame_count,
-                    frame_repeat_rate,
-                )));
-            }
+            let attack_heli_txtr = vec![load_texture("assets/ai_heli.png").await?];
+            let transport_heli_txtr = vec![load_texture("assets/transport_heli.png").await?];
+            let plane_txtr = vec![load_texture("assets/plane.png").await?];
+            let sam_txtr = vec![load_texture("assets/sam.png").await?];
+            let infantry_txtr = vec![load_texture("assets/infantry_pix.png").await?];
+            let scout_txtr = vec![load_texture("assets/scouts.png").await?];
+
+            // Initialize frame_itr with vector sizes
+            let mut vct = Vec::<Box<dyn Iterator<Item = usize>>>::new();
+            vct.push(Box::new(UnitTileTextures::get_repeat_seq_it(tank_txtr.len(), frame_repeat_rate)));
+            vct.push(Box::new(UnitTileTextures::get_repeat_seq_it(rocket_arty_txtr.len(), frame_repeat_rate)));
+            vct.push(Box::new(UnitTileTextures::get_repeat_seq_it(artillery_txtr.len(), frame_repeat_rate)));
+            vct.push(Box::new(UnitTileTextures::get_repeat_seq_it(artillery_txtr.len(), frame_repeat_rate)));
+            vct.push(Box::new(UnitTileTextures::get_repeat_seq_it(apc_txtr.len(), frame_repeat_rate)));
+            vct.push(Box::new(UnitTileTextures::get_repeat_seq_it(attack_heli_txtr.len(), frame_repeat_rate)));
+            vct.push(Box::new(UnitTileTextures::get_repeat_seq_it(transport_heli_txtr.len(), frame_repeat_rate)));
+            vct.push(Box::new(UnitTileTextures::get_repeat_seq_it(plane_txtr.len(), frame_repeat_rate)));
+            vct.push(Box::new(UnitTileTextures::get_repeat_seq_it(sam_txtr.len(), frame_repeat_rate)));
+            vct.push(Box::new(UnitTileTextures::get_repeat_seq_it(infantry_txtr.len(), frame_repeat_rate)));
+            vct.push(Box::new(UnitTileTextures::get_repeat_seq_it(scout_txtr.len(), frame_repeat_rate)));
 
             Ok(UnitTileTextures {
-                tank_txtr: vec![load_texture("assets/tank_pix.png").await?],
-                rocket_arty_txtr: vec![load_texture("assets/himars.png").await?],
-                artillery_txtr: vec![load_texture("assets/ai_arty.png").await?],
-                apc_txtr: vec![load_texture("assets/apc_pix.png").await?],
-                attack_heli_txtr: vec![load_texture("assets/ai_heli.png").await?],
-                transport_heli_txtr: vec![load_texture("assets/transport_heli.png").await?],
-                plane_txtr: vec![load_texture("assets/plane.png").await?],
-                sam_txtr: vec![load_texture("assets/sam.png").await?],
-                infantry_txtr: vec![load_texture("assets/infantry_pix.png").await?],
-                scout_txtr: vec![load_texture("assets/scouts.png").await?],
+                tank_txtr,
+                rocket_arty_txtr,
+                artillery_txtr,
+                apc_txtr,
+                attack_heli_txtr,
+                transport_heli_txtr,
+                plane_txtr,
+                sam_txtr,
+                infantry_txtr,
+                scout_txtr,
                 frame_itr: vct,
             })
         }
@@ -80,12 +108,10 @@ pub mod Units {
         ) -> Result<UnitTileTextures, macroquad::Error> {
             let mut vct = Vec::<Box<dyn Iterator<Item = usize>>>::new();
 
-            for _ in 0..(UnitTilesEnum::End as usize) {
-                vct.push(Box::new(UnitTileTextures::get_repeat_seq_it(
+            vct.push(Box::new(UnitTileTextures::get_repeat_seq_it(
                     frame_count,
                     frame_repeat_rate,
                 )));
-            }
 
             Ok(UnitTileTextures {
                 tank_txtr: vec![load_texture("assets/tank_pix.png").await?],
@@ -132,7 +158,7 @@ pub mod Units {
             Ok(Box::new(AnimateUnit {
                 default: AnimateUnit::load_default_textures(1, 1).await?,
                 movement: AnimateUnit::load_movement_textures(1, 1).await?,
-                damage: AnimateUnit::load_damage_textures(1, 1).await?,
+                damage: AnimateUnit::load_damage_textures( 20).await?,
                 destruction: AnimateUnit::load_destruction_textures(1, 1).await?,
             }))
         }
@@ -144,7 +170,7 @@ pub mod Units {
             match texture_type {
                 TextureType::Default => self.default.get_unit_texture(unit_type),
                 TextureType::Moving => &self.movement.get_unit_texture(unit_type),
-                TextureType::Destruction => &self.destruction.get_unit_texture(unit_type),
+                TextureType::Damage => &self.damage.get_unit_texture(unit_type),
                 _ => {
                     dbg!(texture_type);
                     unreachable!()
@@ -234,7 +260,7 @@ pub mod Units {
         pub player_id: Entity,
         pub unit_name: String,
         pub unit_type: UnitTilesEnum,
-        max_health: f32,
+        pub max_health: f32,
         pub health: f32,
         movement_rate: f32,
         pub location: GridTile,
