@@ -1,7 +1,7 @@
 use macroquad::prelude::*;
 
 use crate::defines::*;
-use crate::units::Units::*;
+use crate::units::units::*;
 use crate::utils;
 
 pub struct MouseTracker {

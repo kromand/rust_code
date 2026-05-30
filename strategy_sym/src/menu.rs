@@ -2,9 +2,9 @@ use macroquad::prelude::*;
 use macroquad::ui::{Skin, Ui, hash, root_ui, widgets};
 
 use crate::MouseTracker;
-use crate::defines::{InfrastructureEnum, TILE_SIZE, UnitTilesEnum};
+use crate::defines::{GridTile, InfrastructureEnum, TILE_SIZE};
 use crate::map::terrain::TerrainGrid;
-use crate::units::Units::PlayerUnits;
+use crate::units::units::PlayerUnits;
 
 #[derive(PartialEq, Eq)]
 pub enum GameState {
@@ -93,7 +93,7 @@ pub fn clear_ui_skin() {
 fn popup_item_count(
     selection: &MenuType,
     terrain_grid: &TerrainGrid,
-    grid_tile: (u16, u16),
+    grid_tile: GridTile,
     has_factory: bool,
     has_airfield: bool,
 ) -> usize {
@@ -133,7 +133,7 @@ fn render_popup_menu_content(
     mouse: &mut MouseTracker,
     selection: &mut MenuType,
     terrain_grid: &mut TerrainGrid,
-    grid_tile: (u16, u16),
+    grid_tile: GridTile,
     has_factory: bool,
     has_airfield: bool,
     player_units: &PlayerUnits,
@@ -184,7 +184,7 @@ fn render_popup_factory_menu(
     selection: &mut MenuType,
     mouse: &mut MouseTracker,
     terrain_grid: &mut TerrainGrid,
-    grid_tile: (u16, u16),
+    grid_tile: GridTile,
 ) {
     let allowed_units = terrain_grid.get_factory_allowed_units(grid_tile);
     if !allowed_units.is_empty() {
@@ -212,7 +212,7 @@ fn render_popup_airfield_menu(
     selection: &mut MenuType,
     mouse: &mut MouseTracker,
     terrain_grid: &mut TerrainGrid,
-    grid_tile: (u16, u16),
+    grid_tile: GridTile,
 ) {
     let allowed_units = terrain_grid.get_airfield_allowed_units(grid_tile);
     if !allowed_units.is_empty() {
@@ -240,7 +240,7 @@ fn render_popup_unit_menu(
     selection: &mut MenuType,
     mouse: &mut MouseTracker,
     player_units: &PlayerUnits,
-    grid_tile: (u16, u16),
+    grid_tile: GridTile,
 ) {
     if let Some(unit_stack) = player_units.units_by_tile.get(&grid_tile) {
         let mut y_offset = 30.0;
@@ -301,8 +301,8 @@ pub fn show_popup_menu(
 
         let grid_col = (mouse.popup_position().0 / TILE_SIZE.0) as u16;
         let grid_row = (mouse.popup_position().1 / TILE_SIZE.1) as u16;
-        let grid_tile = (grid_col, grid_row);
-        let has_factory = terrain_grid.has_infrastructure(grid_tile, InfrastructureEnum::Fatory);
+        let grid_tile = GridTile::new(grid_row, grid_col);
+        let has_factory = terrain_grid.has_infrastructure(grid_tile, InfrastructureEnum::Factory);
         let has_airfield = terrain_grid.has_infrastructure(grid_tile, InfrastructureEnum::Airfield);
 
         if mouse.popup_position_changed() {

@@ -1,10 +1,25 @@
-pub mod Units {
+pub mod units {
     use crate::defines::*;
     use macroquad::prelude::*;
     use std::{
         collections::HashMap,
         sync::atomic::{AtomicUsize, Ordering},
     };
+
+    const DEFAULT_TANK_TEXTURE_FILE: &str = "assets/tank_pix.png";
+    const DEFAULT_ROCKETARTY_TEXTURE_FILE: &str = "assets/rocket_arty.png";
+    const DEFAULT_ARTILLERY_TEXTURE_FILE: &str = "assets/ai_arty.png";
+    const DEFAULT_APC_TEXTURE_FILE: &str = "assets/apc_pix.png";
+    const DEFAULT_APC_DMG_1_TEXTURE_FILE: &str = "assets/apc_dmg_1.png";
+    const DEFAULT_APC_DMG_2_TEXTURE_FILE: &str = "assets/apc_dmg_2.png";
+    const DEFAULT_APC_DMG_3_TEXTURE_FILE: &str = "assets/apc_dmg_3.png";
+    const DEFAULT_APC_DMG_4_TEXTURE_FILE: &str = "assets/apc_dmg_4.png";
+    const DEFAULT_ATTACK_HELI_TEXTURE_FILE: &str = "assets/ai_heli.png";
+    const DEFAULT_TRANSPORT_HELI_TEXTURE_FILE: &str = "assets/transport_heli.png";
+    const DEFAULT_PLANE_TEXTURE_FILE: &str = "assets/plane.png";
+    const DEFAULT_SAM_TEXTURE_FILE: &str = "assets/sam.png";
+    const DEFAULT_INFANTRY_TEXTURE_FILE: &str = "assets/infantry_pix.png";
+    const DEFAULT_SCOUT_TEXTURE_FILE: &str = "assets/scouts.png";
 
     #[derive(Debug)]
     pub enum TextureType {
@@ -42,16 +57,16 @@ pub mod Units {
             }
 
             Ok(UnitTileTextures {
-                tank_txtr: vec![load_texture("assets/tank_pix.png").await?],
-                rocket_arty_txtr: vec![load_texture("assets/himars.png").await?],
-                artillery_txtr: vec![load_texture("assets/ai_arty.png").await?],
-                apc_txtr: vec![load_texture("assets/apc_pix.png").await?],
-                attack_heli_txtr: vec![load_texture("assets/ai_heli.png").await?],
-                transport_heli_txtr: vec![load_texture("assets/transport_heli.png").await?],
-                plane_txtr: vec![load_texture("assets/plane.png").await?],
-                sam_txtr: vec![load_texture("assets/sam.png").await?],
-                infantry_txtr: vec![load_texture("assets/infantry_pix.png").await?],
-                scout_txtr: vec![load_texture("assets/scouts.png").await?],
+                tank_txtr: vec![load_texture(DEFAULT_TANK_TEXTURE_FILE).await?],
+                rocket_arty_txtr: vec![load_texture(DEFAULT_ROCKETARTY_TEXTURE_FILE).await?],
+                artillery_txtr: vec![load_texture(DEFAULT_ARTILLERY_TEXTURE_FILE).await?],
+                apc_txtr: vec![load_texture(DEFAULT_APC_TEXTURE_FILE).await?],
+                attack_heli_txtr: vec![load_texture(DEFAULT_ATTACK_HELI_TEXTURE_FILE).await?],
+                transport_heli_txtr: vec![load_texture(DEFAULT_TRANSPORT_HELI_TEXTURE_FILE).await?],
+                plane_txtr: vec![load_texture(DEFAULT_PLANE_TEXTURE_FILE).await?],
+                sam_txtr: vec![load_texture(DEFAULT_SAM_TEXTURE_FILE).await?],
+                infantry_txtr: vec![load_texture(DEFAULT_INFANTRY_TEXTURE_FILE).await?],
+                scout_txtr: vec![load_texture(DEFAULT_SCOUT_TEXTURE_FILE).await?],
                 frame_itr: vct,
             })
         }
@@ -59,34 +74,70 @@ pub mod Units {
             frame_repeat_rate: usize,
         ) -> Result<UnitTileTextures, macroquad::Error> {
             // Load textures first
-            let tank_txtr = vec![load_texture("assets/tank_pix.png").await?];
-            let rocket_arty_txtr = vec![load_texture("assets/himars.png").await?];
-            let artillery_txtr = vec![load_texture("assets/ai_arty.png").await?];
-            let apc_txtr = vec![load_texture("assets/apc_dmg_1.png").await?,
-                load_texture("assets/apc_dmg_2.png").await?,
-                load_texture("assets/apc_dmg_3.png").await?,
-                load_texture("assets/apc_dmg_4.png").await?,];
+            let tank_txtr = vec![load_texture(DEFAULT_TANK_TEXTURE_FILE).await?];
+            let rocket_arty_txtr = vec![load_texture(DEFAULT_ROCKETARTY_TEXTURE_FILE).await?];
+            let artillery_txtr = vec![load_texture(DEFAULT_ARTILLERY_TEXTURE_FILE).await?];
+            let apc_txtr = vec![
+                load_texture(DEFAULT_APC_DMG_1_TEXTURE_FILE).await?,
+                load_texture(DEFAULT_APC_DMG_2_TEXTURE_FILE).await?,
+                load_texture(DEFAULT_APC_DMG_3_TEXTURE_FILE).await?,
+                load_texture(DEFAULT_APC_DMG_4_TEXTURE_FILE).await?,
+            ];
 
-            let attack_heli_txtr = vec![load_texture("assets/ai_heli.png").await?];
-            let transport_heli_txtr = vec![load_texture("assets/transport_heli.png").await?];
-            let plane_txtr = vec![load_texture("assets/plane.png").await?];
-            let sam_txtr = vec![load_texture("assets/sam.png").await?];
-            let infantry_txtr = vec![load_texture("assets/infantry_pix.png").await?];
-            let scout_txtr = vec![load_texture("assets/scouts.png").await?];
+            let attack_heli_txtr = vec![load_texture(DEFAULT_ATTACK_HELI_TEXTURE_FILE).await?];
+            let transport_heli_txtr =
+                vec![load_texture(DEFAULT_TRANSPORT_HELI_TEXTURE_FILE).await?];
+            let plane_txtr = vec![load_texture(DEFAULT_PLANE_TEXTURE_FILE).await?];
+            let sam_txtr = vec![load_texture(DEFAULT_SAM_TEXTURE_FILE).await?];
+            let infantry_txtr = vec![load_texture(DEFAULT_INFANTRY_TEXTURE_FILE).await?];
+            let scout_txtr = vec![load_texture(DEFAULT_SCOUT_TEXTURE_FILE).await?];
 
             // Initialize frame_itr with vector sizes
             let mut vct = Vec::<Box<dyn Iterator<Item = usize>>>::new();
-            vct.push(Box::new(UnitTileTextures::get_repeat_seq_it(tank_txtr.len(), frame_repeat_rate)));
-            vct.push(Box::new(UnitTileTextures::get_repeat_seq_it(rocket_arty_txtr.len(), frame_repeat_rate)));
-            vct.push(Box::new(UnitTileTextures::get_repeat_seq_it(artillery_txtr.len(), frame_repeat_rate)));
-            vct.push(Box::new(UnitTileTextures::get_repeat_seq_it(artillery_txtr.len(), frame_repeat_rate)));
-            vct.push(Box::new(UnitTileTextures::get_repeat_seq_it(apc_txtr.len(), frame_repeat_rate)));
-            vct.push(Box::new(UnitTileTextures::get_repeat_seq_it(attack_heli_txtr.len(), frame_repeat_rate)));
-            vct.push(Box::new(UnitTileTextures::get_repeat_seq_it(transport_heli_txtr.len(), frame_repeat_rate)));
-            vct.push(Box::new(UnitTileTextures::get_repeat_seq_it(plane_txtr.len(), frame_repeat_rate)));
-            vct.push(Box::new(UnitTileTextures::get_repeat_seq_it(sam_txtr.len(), frame_repeat_rate)));
-            vct.push(Box::new(UnitTileTextures::get_repeat_seq_it(infantry_txtr.len(), frame_repeat_rate)));
-            vct.push(Box::new(UnitTileTextures::get_repeat_seq_it(scout_txtr.len(), frame_repeat_rate)));
+            vct.push(Box::new(UnitTileTextures::get_repeat_seq_it(
+                tank_txtr.len(),
+                frame_repeat_rate,
+            )));
+            vct.push(Box::new(UnitTileTextures::get_repeat_seq_it(
+                rocket_arty_txtr.len(),
+                frame_repeat_rate,
+            )));
+            vct.push(Box::new(UnitTileTextures::get_repeat_seq_it(
+                artillery_txtr.len(),
+                frame_repeat_rate,
+            )));
+            vct.push(Box::new(UnitTileTextures::get_repeat_seq_it(
+                artillery_txtr.len(),
+                frame_repeat_rate,
+            )));
+            vct.push(Box::new(UnitTileTextures::get_repeat_seq_it(
+                apc_txtr.len(),
+                frame_repeat_rate,
+            )));
+            vct.push(Box::new(UnitTileTextures::get_repeat_seq_it(
+                attack_heli_txtr.len(),
+                frame_repeat_rate,
+            )));
+            vct.push(Box::new(UnitTileTextures::get_repeat_seq_it(
+                transport_heli_txtr.len(),
+                frame_repeat_rate,
+            )));
+            vct.push(Box::new(UnitTileTextures::get_repeat_seq_it(
+                plane_txtr.len(),
+                frame_repeat_rate,
+            )));
+            vct.push(Box::new(UnitTileTextures::get_repeat_seq_it(
+                sam_txtr.len(),
+                frame_repeat_rate,
+            )));
+            vct.push(Box::new(UnitTileTextures::get_repeat_seq_it(
+                infantry_txtr.len(),
+                frame_repeat_rate,
+            )));
+            vct.push(Box::new(UnitTileTextures::get_repeat_seq_it(
+                scout_txtr.len(),
+                frame_repeat_rate,
+            )));
 
             Ok(UnitTileTextures {
                 tank_txtr,
@@ -109,21 +160,21 @@ pub mod Units {
             let mut vct = Vec::<Box<dyn Iterator<Item = usize>>>::new();
 
             vct.push(Box::new(UnitTileTextures::get_repeat_seq_it(
-                    frame_count,
-                    frame_repeat_rate,
-                )));
+                frame_count,
+                frame_repeat_rate,
+            )));
 
             Ok(UnitTileTextures {
-                tank_txtr: vec![load_texture("assets/tank_pix.png").await?],
-                rocket_arty_txtr: vec![load_texture("assets/himars.png").await?],
-                artillery_txtr: vec![load_texture("assets/ai_arty.png").await?],
-                apc_txtr: vec![load_texture("assets/apc_pix.png").await?],
-                attack_heli_txtr: vec![load_texture("assets/attack_heli.png").await?],
-                transport_heli_txtr: vec![load_texture("assets/transport_heli.png").await?],
-                plane_txtr: vec![load_texture("assets/plane.png").await?],
-                sam_txtr: vec![load_texture("assets/sam.png").await?],
-                infantry_txtr: vec![load_texture("assets/infantry_pix.png").await?],
-                scout_txtr: vec![load_texture("assets/scouts.png").await?],
+                tank_txtr: vec![load_texture(DEFAULT_TANK_TEXTURE_FILE).await?],
+                rocket_arty_txtr: vec![load_texture(DEFAULT_ROCKETARTY_TEXTURE_FILE).await?],
+                artillery_txtr: vec![load_texture(DEFAULT_ARTILLERY_TEXTURE_FILE).await?],
+                apc_txtr: vec![load_texture(DEFAULT_APC_TEXTURE_FILE).await?],
+                attack_heli_txtr: vec![load_texture(DEFAULT_ATTACK_HELI_TEXTURE_FILE).await?],
+                transport_heli_txtr: vec![load_texture(DEFAULT_TRANSPORT_HELI_TEXTURE_FILE).await?],
+                plane_txtr: vec![load_texture(DEFAULT_PLANE_TEXTURE_FILE).await?],
+                sam_txtr: vec![load_texture(DEFAULT_SAM_TEXTURE_FILE).await?],
+                infantry_txtr: vec![load_texture(DEFAULT_INFANTRY_TEXTURE_FILE).await?],
+                scout_txtr: vec![load_texture(DEFAULT_SCOUT_TEXTURE_FILE).await?],
                 frame_itr: vct,
             })
         }
@@ -141,16 +192,16 @@ pub mod Units {
             }
 
             Ok(UnitTileTextures {
-                tank_txtr: vec![load_texture("assets/tank_pix.png").await?],
-                rocket_arty_txtr: vec![load_texture("assets/himars.png").await?],
-                artillery_txtr: vec![load_texture("assets/ai_arty.png").await?],
-                apc_txtr: vec![load_texture("assets/apc_pix.png").await?],
-                attack_heli_txtr: vec![load_texture("assets/attack_heli.png").await?],
-                transport_heli_txtr: vec![load_texture("assets/transport_heli.png").await?],
-                plane_txtr: vec![load_texture("assets/plane.png").await?],
-                sam_txtr: vec![load_texture("assets/sam.png").await?],
-                infantry_txtr: vec![load_texture("assets/infantry_pix.png").await?],
-                scout_txtr: vec![load_texture("assets/scouts.png").await?],
+                tank_txtr: vec![load_texture(DEFAULT_TANK_TEXTURE_FILE).await?],
+                rocket_arty_txtr: vec![load_texture(DEFAULT_ROCKETARTY_TEXTURE_FILE).await?],
+                artillery_txtr: vec![load_texture(DEFAULT_ARTILLERY_TEXTURE_FILE).await?],
+                apc_txtr: vec![load_texture(DEFAULT_APC_TEXTURE_FILE).await?],
+                attack_heli_txtr: vec![load_texture(DEFAULT_ATTACK_HELI_TEXTURE_FILE).await?],
+                transport_heli_txtr: vec![load_texture(DEFAULT_TRANSPORT_HELI_TEXTURE_FILE).await?],
+                plane_txtr: vec![load_texture(DEFAULT_PLANE_TEXTURE_FILE).await?],
+                sam_txtr: vec![load_texture(DEFAULT_SAM_TEXTURE_FILE).await?],
+                infantry_txtr: vec![load_texture(DEFAULT_INFANTRY_TEXTURE_FILE).await?],
+                scout_txtr: vec![load_texture(DEFAULT_SCOUT_TEXTURE_FILE).await?],
                 frame_itr: vct,
             })
         }
@@ -158,7 +209,7 @@ pub mod Units {
             Ok(Box::new(AnimateUnit {
                 default: AnimateUnit::load_default_textures(1, 1).await?,
                 movement: AnimateUnit::load_movement_textures(1, 1).await?,
-                damage: AnimateUnit::load_damage_textures( 20).await?,
+                damage: AnimateUnit::load_damage_textures(20).await?,
                 destruction: AnimateUnit::load_destruction_textures(1, 1).await?,
             }))
         }
@@ -262,7 +313,7 @@ pub mod Units {
         pub unit_type: UnitTilesEnum,
         pub max_health: f32,
         pub health: f32,
-        movement_rate: f32,
+        pub movement_rate: f32,
         pub location: GridTile,
         pub allowed_terrains: [bool; TerrainTilesEnum::End as usize],
         pub visibility_range: usize,
@@ -278,7 +329,7 @@ pub mod Units {
                 max_health: 100.0,
                 health: 100.0,
                 movement_rate: 2.0,
-                location: (0, 0),
+                location: GridTile::new(0, 0),
                 allowed_terrains: [false; TerrainTilesEnum::End as usize],
                 visibility_range: 1,
                 prob_to_detect_units: 50,
@@ -462,26 +513,36 @@ pub mod Units {
         }
     }
 
-    pub struct AI_units {
+    pub struct AiUnits {
         pub units: HashMap<usize, UnitInfo>,
     }
-    impl AI_units {
-        pub fn new() -> AI_units {
-            AI_units {
+    impl AiUnits {
+        pub fn new() -> AiUnits {
+            AiUnits {
                 units: HashMap::<usize, UnitInfo>::new(),
             }
         }
-        pub fn add_test_units(self: &mut AI_units, id_gen: &mut UnitId) {
+        pub fn add_test_units(self: &mut AiUnits, id_gen: &mut UnitId) {
             //add sample AI infantry
-            let mut new_unit = UnitInfo::new(UnitTilesEnum::Scout, id_gen, Entity::AI, (15, 7));
+            let mut new_unit = UnitInfo::new(
+                UnitTilesEnum::Scout,
+                id_gen,
+                Entity::AI,
+                GridTile::new(7, 15),
+            );
             self.units.insert(new_unit.unit_id, new_unit);
 
             // add AI tank
-            new_unit = UnitInfo::new(UnitTilesEnum::Tank, id_gen, Entity::AI, (16, 6));
+            new_unit = UnitInfo::new(
+                UnitTilesEnum::Tank,
+                id_gen,
+                Entity::AI,
+                GridTile::new(6, 16),
+            );
             self.units.insert(new_unit.unit_id, new_unit);
 
             // add AI SAM
-            new_unit = UnitInfo::new(UnitTilesEnum::SAM, id_gen, Entity::AI, (17, 5));
+            new_unit = UnitInfo::new(UnitTilesEnum::SAM, id_gen, Entity::AI, GridTile::new(5, 17));
             self.units.insert(new_unit.unit_id, new_unit);
         }
     }
@@ -557,6 +618,13 @@ pub mod Units {
             self.units_by_tile.get(&tile).map(|stack| &stack.units)
         }
 
+        pub fn find_unit_tile(&self, unit_id: usize) -> Option<GridTile> {
+            self.units_by_tile
+                .iter()
+                .find(|(_, stack)| stack.units.contains_key(&unit_id))
+                .map(|(tile, _)| *tile)
+        }
+
         pub fn remove_unit(&mut self, tile: GridTile, unit_id: usize) -> bool {
             if let Some(units_at_tile) = self.units_by_tile.get_mut(&tile) {
                 if units_at_tile.units.remove(&unit_id).is_some() {
@@ -572,41 +640,101 @@ pub mod Units {
     }
 
     impl DamageAssessment {
+        // Columns: Tank=0, Infantry=1, Scout=2, Engineers=3, APC=4,
+        //          RocketArty=5, Artillery=6, AttackHeli=7, TransportHeli=8, Plane=9, SAM=10
         pub fn new() -> DamageAssessment {
-            let mut dmg_vec = Vec::<Vec<f32>>::new();
-            dmg_vec.reserve(UnitTilesEnum::End as usize);
+            let n = UnitTilesEnum::End as usize;
+            let mut m = vec![vec![1.0f32; n]; n];
 
-            dmg_vec[UnitTilesEnum::Tank as usize] =
-                vec![1.0, 2.0, 4.0, 2.0, 1.5, 100.0, 100.0, 0.05, 0.2, 100.0];
-            dmg_vec[UnitTilesEnum::Infantry as usize] =
-                vec![0.3, 2.0, 4.0, 2.0, 1.5, 100.0, 100.0, 0.05, 0.2, 100.0];
-            dmg_vec[UnitTilesEnum::Scout as usize] =
-                vec![1.0, 2.0, 4.0, 2.0, 1.5, 100.0, 100.0, 0.05, 0.2, 100.0];
-            dmg_vec[UnitTilesEnum::Engineers as usize] =
-                vec![1.0, 2.0, 4.0, 2.0, 1.5, 100.0, 100.0, 0.05, 0.2, 100.0];
+            m[UnitTilesEnum::Tank as usize] =
+                vec![1.0, 0.7, 1.5, 1.2, 1.3, 2.0, 2.0, 0.1, 0.1, 0.0, 1.5];
+            m[UnitTilesEnum::Infantry as usize] =
+                vec![0.3, 1.0, 1.2, 1.5, 0.5, 1.5, 1.5, 0.3, 0.3, 0.1, 0.5];
+            m[UnitTilesEnum::Scout as usize] =
+                vec![0.2, 0.8, 1.0, 1.0, 0.6, 1.0, 1.0, 0.1, 0.2, 0.0, 0.5];
+            m[UnitTilesEnum::Engineers as usize] =
+                vec![0.4, 1.2, 1.0, 1.0, 0.7, 1.0, 1.0, 0.1, 0.2, 0.0, 0.5];
+            m[UnitTilesEnum::APC as usize] =
+                vec![0.5, 1.5, 2.0, 1.5, 1.0, 1.5, 1.5, 0.2, 0.3, 0.0, 0.8];
+            m[UnitTilesEnum::RocketArty as usize] =
+                vec![1.5, 2.0, 2.0, 2.0, 1.5, 1.0, 1.0, 0.3, 0.4, 0.1, 1.5];
+            m[UnitTilesEnum::Artillery as usize] =
+                vec![1.5, 2.5, 2.0, 2.0, 1.5, 1.0, 1.0, 0.2, 0.3, 0.0, 1.5];
+            m[UnitTilesEnum::AttackHeli as usize] =
+                vec![2.5, 1.5, 2.0, 1.5, 2.0, 2.0, 2.0, 1.0, 2.0, 0.5, 1.5];
+            m[UnitTilesEnum::TransportHeli as usize] =
+                vec![0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.0, 0.1];
+            m[UnitTilesEnum::Plane as usize] =
+                vec![2.0, 1.5, 2.0, 1.5, 2.0, 3.0, 3.0, 1.0, 2.0, 1.0, 0.5];
+            m[UnitTilesEnum::SAM as usize] =
+                vec![0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 3.0, 3.0, 2.5, 0.1];
 
-            dmg_vec[UnitTilesEnum::APC as usize] =
-                vec![1.0, 2.0, 4.0, 2.0, 1.5, 100.0, 100.0, 0.05, 0.2, 100.0];
-            dmg_vec[UnitTilesEnum::RocketArty as usize] =
-                vec![1.0, 2.0, 4.0, 2.0, 1.5, 100.0, 100.0, 0.05, 0.2, 100.0];
-            dmg_vec[UnitTilesEnum::Artillery as usize] =
-                vec![1.0, 2.0, 4.0, 2.0, 1.5, 100.0, 100.0, 0.05, 0.2, 100.0];
-            dmg_vec[UnitTilesEnum::AttackHeli as usize] =
-                vec![1.0, 2.0, 4.0, 2.0, 1.5, 100.0, 100.0, 0.05, 0.2, 100.0];
+            DamageAssessment { damage_matrix: m }
+        }
 
-            dmg_vec[UnitTilesEnum::TransportHeli as usize] =
-                vec![1.0, 2.0, 4.0, 2.0, 1.5, 100.0, 100.0, 0.05, 0.2, 100.0];
-            dmg_vec[UnitTilesEnum::SAM as usize] =
-                vec![1.0, 2.0, 4.0, 2.0, 1.5, 100.0, 100.0, 0.05, 0.2, 100.0];
-
-            DamageAssessment {
-                damage_matrix: dmg_vec,
+        // Combined-arms unit types that qualify for the variety bonus.
+        fn variety_bonus(units: &[&UnitInfo]) -> f32 {
+            let combined_arms = [
+                UnitTilesEnum::Tank,
+                UnitTilesEnum::APC,
+                UnitTilesEnum::Infantry,
+                UnitTilesEnum::AttackHeli,
+            ];
+            let count = combined_arms
+                .iter()
+                .filter(|&&vt| units.iter().any(|u| u.unit_type == vt))
+                .count();
+            match count {
+                0 | 1 => 1.0,
+                2 => 1.15,
+                3 => 1.30,
+                _ => 1.50,
             }
         }
 
+        // Logarithmic coordination bonus when attackers outnumber defenders.
+        // No penalty for being outnumbered; the smaller raw sum already reflects that.
+        fn numerical_bonus(attacker_count: usize, defender_count: usize) -> f32 {
+            let ratio = attacker_count as f32 / defender_count.max(1) as f32;
+            (1.0 + 0.2 * ratio.ln()).max(1.0)
+        }
+
+        /// Total damage dealt by `attackers` to the `defenders` group.
+        ///
+        /// In a 1v1 this equals exactly `damage_matrix[attacker][defender]`.
+        /// Each additional attacker adds their proportional damage; the variety
+        /// and numerical coordination bonuses then scale the final total.
+        pub fn attack_damage(&self, attackers: &[&UnitInfo], defenders: &[&UnitInfo]) -> f32 {
+            if attackers.is_empty() || defenders.is_empty() {
+                return 0.0;
+            }
+            let n_def = defenders.len() as f32;
+            // Each attacker contributes its average effectiveness across all defender types.
+            let raw: f32 = attackers
+                .iter()
+                .map(|a| {
+                    defenders
+                        .iter()
+                        .map(|d| self.damage_matrix[a.unit_type as usize][d.unit_type as usize])
+                        .sum::<f32>()
+                        / n_def
+                })
+                .sum();
+
+            raw * Self::variety_bonus(attackers)
+                * Self::numerical_bonus(attackers.len(), defenders.len())
+        }
+
+        /// Resolve simultaneous combat between two sides.
+        /// Returns `(damage dealt to side_a, damage dealt to side_b)`.
+        pub fn resolve_combat(&self, side_a: &[&UnitInfo], side_b: &[&UnitInfo]) -> (f32, f32) {
+            (
+                self.attack_damage(side_b, side_a),
+                self.attack_damage(side_a, side_b),
+            )
+        }
+
         pub fn damage_multiplier(&self, source: UnitTilesEnum, target: UnitTilesEnum) -> f32 {
-            // Return the multiplier from the damage matrix for given source and target unit types.
-            // Assumes `damage_matrix` has been initialized with length >= UnitTilesEnum::End.
             self.damage_matrix[source as usize][target as usize]
         }
     }
@@ -614,16 +742,89 @@ pub mod Units {
     mod tests {
         use super::*;
 
+        fn make_unit(tp: UnitTilesEnum) -> UnitInfo {
+            UnitInfo::new(tp, &mut UnitId::new(), Entity::Player, GridTile::new(0, 0))
+        }
+
+        #[test]
+        fn one_v_one_equals_matrix_value() {
+            let da = DamageAssessment::new();
+            let tank = make_unit(UnitTilesEnum::Tank);
+            let inf = make_unit(UnitTilesEnum::Infantry);
+            let damage = da.attack_damage(&[&tank], &[&inf]);
+            let expected = da.damage_multiplier(UnitTilesEnum::Tank, UnitTilesEnum::Infantry);
+            assert!(
+                (damage - expected).abs() < 1e-5,
+                "1v1 damage {damage} should equal matrix value {expected}"
+            );
+        }
+
+        #[test]
+        fn combined_arms_beats_mono_type_same_size() {
+            let da = DamageAssessment::new();
+            let enemy = make_unit(UnitTilesEnum::Infantry);
+            let t = make_unit(UnitTilesEnum::Tank);
+            let a = make_unit(UnitTilesEnum::APC);
+            let i = make_unit(UnitTilesEnum::Infantry);
+            let h = make_unit(UnitTilesEnum::AttackHeli);
+            let t2 = make_unit(UnitTilesEnum::Tank);
+            let t3 = make_unit(UnitTilesEnum::Tank);
+            let t4 = make_unit(UnitTilesEnum::Tank);
+
+            let combined = da.attack_damage(&[&t, &a, &i, &h], &[&enemy]);
+            let mono = da.attack_damage(&[&t, &t2, &t3, &t4], &[&enemy]);
+            assert!(
+                combined > mono,
+                "combined arms ({combined}) should outperform mono-type ({mono})"
+            );
+        }
+
+        #[test]
+        fn numerical_bonus_applies_when_outnumbering() {
+            let da = DamageAssessment::new();
+            let enemy = make_unit(UnitTilesEnum::Infantry);
+            let t1 = make_unit(UnitTilesEnum::Tank);
+            let t2 = make_unit(UnitTilesEnum::Tank);
+            let t3 = make_unit(UnitTilesEnum::Tank);
+            let lone = make_unit(UnitTilesEnum::Tank);
+
+            let dmg_3v1 = da.attack_damage(&[&t1, &t2, &t3], &[&enemy]);
+            let dmg_1v1 = da.attack_damage(&[&lone], &[&enemy]);
+            // 3 attackers stack raw damage AND gain a coordination bonus,
+            // so the result must exceed a naive 3× multiple.
+            assert!(
+                dmg_3v1 > 3.0 * dmg_1v1,
+                "3v1 ({dmg_3v1}) should exceed 3x 1v1 ({} ) due to numerical bonus",
+                3.0 * dmg_1v1
+            );
+        }
+
+        #[test]
+        fn resolve_combat_returns_symmetric_for_equal_forces() {
+            let da = DamageAssessment::new();
+            let a1 = make_unit(UnitTilesEnum::Tank);
+            let b1 = make_unit(UnitTilesEnum::Tank);
+            let (dmg_a, dmg_b) = da.resolve_combat(&[&a1], &[&b1]);
+            assert!(
+                (dmg_a - dmg_b).abs() < 1e-5,
+                "equal 1v1 forces should deal identical damage to each other"
+            );
+        }
+
         #[test]
         fn add_unit_at_inserts_unit_into_tile_map() {
             let mut id_gen = UnitId::new();
             let mut player_units = PlayerUnits::new();
 
-            let unit_id =
-                player_units.add_unit_at(UnitTilesEnum::Tank, &mut id_gen, Entity::Player, (2, 3));
+            let unit_id = player_units.add_unit_at(
+                UnitTilesEnum::Tank,
+                &mut id_gen,
+                Entity::Player,
+                GridTile::new(3, 2),
+            );
 
             let tile_units = player_units
-                .get_units_at((2, 3))
+                .get_units_at(GridTile::new(3, 2))
                 .expect("Tile should exist");
             assert_eq!(tile_units.len(), 1);
             assert!(tile_units.contains_key(&unit_id));
@@ -634,16 +835,20 @@ pub mod Units {
             let mut id_gen = UnitId::new();
             let mut player_units = PlayerUnits::new();
 
-            let unit_id =
-                player_units.add_unit_at(UnitTilesEnum::Tank, &mut id_gen, Entity::Player, (2, 3));
-            let moved = player_units.move_unit((2, 3), unit_id, (3, 4));
+            let unit_id = player_units.add_unit_at(
+                UnitTilesEnum::Tank,
+                &mut id_gen,
+                Entity::Player,
+                GridTile::new(3, 2),
+            );
+            let moved = player_units.move_unit(GridTile::new(3, 2), unit_id, GridTile::new(4, 3));
 
             assert!(
                 moved,
                 "move_unit should succeed when start_tile contains the unit"
             );
             let source_units = player_units
-                .get_units_at((2, 3))
+                .get_units_at(GridTile::new(3, 2))
                 .expect("source tile should exist");
             assert!(
                 source_units.is_empty(),
@@ -651,13 +856,13 @@ pub mod Units {
             );
 
             let target_units = player_units
-                .get_units_at((3, 4))
+                .get_units_at(GridTile::new(4, 3))
                 .expect("Target tile should exist");
             assert_eq!(target_units.len(), 1);
             let moved_unit = target_units
                 .get(&unit_id)
                 .expect("Moved unit should be present");
-            assert_eq!(moved_unit.location, (3, 4));
+            assert_eq!(moved_unit.location, GridTile::new(4, 3));
         }
 
         #[test]
@@ -665,16 +870,20 @@ pub mod Units {
             let mut id_gen = UnitId::new();
             let mut player_units = PlayerUnits::new();
 
-            let unit_id =
-                player_units.add_unit_at(UnitTilesEnum::Tank, &mut id_gen, Entity::Player, (2, 3));
-            let moved = player_units.move_unit((1, 1), unit_id, (3, 4));
+            let unit_id = player_units.add_unit_at(
+                UnitTilesEnum::Tank,
+                &mut id_gen,
+                Entity::Player,
+                GridTile::new(3, 2),
+            );
+            let moved = player_units.move_unit(GridTile::new(1, 1), unit_id, GridTile::new(4, 3));
 
             assert!(
                 !moved,
                 "move_unit should fail when the unit is not present at start_tile"
             );
             let original_units = player_units
-                .get_units_at((2, 3))
+                .get_units_at(GridTile::new(3, 2))
                 .expect("Original tile should still exist");
             assert!(original_units.contains_key(&unit_id));
         }

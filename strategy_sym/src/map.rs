@@ -10,7 +10,7 @@ pub mod terrain {
     use std::sync::{Arc, Mutex};
 
     use macroquad::prelude::*;
-    struct TileInfo {
+    pub struct TileInfo {
         terrain_type: TerrainTilesEnum,
         location: GridTile,
         visible_units: [HashSet<usize>; 2],
@@ -19,7 +19,7 @@ pub mod terrain {
     }
     pub struct TerrainGrid {
         map: Vec<Vec<TileInfo>>,
-        probability_generation: random_nums::prob_gen,
+        probability_generation: random_nums::ProgGen,
         pub visible_units_per_tile: HashMap<GridTile, HashSet<usize>>,
     }
     impl TerrainGrid {
@@ -35,7 +35,7 @@ pub mod terrain {
                     .enumerate()
                     .map(|(x, c)| TileInfo {
                         terrain_type: TerrainGrid::char_code_terrain_enum(c),
-                        location: (y as u16, x as u16),
+                        location: GridTile::new(y as u16, x as u16),
                         visible_units: [HashSet::<usize>::new(), HashSet::<usize>::new()],
                         hidden_units: [HashSet::<usize>::new(), HashSet::<usize>::new()],
                         infrastruct:
@@ -47,54 +47,53 @@ pub mod terrain {
 
             TerrainGrid {
                 map: m,
-                probability_generation: random_nums::prob_gen::new(100),
+                probability_generation: random_nums::ProgGen::new(100),
                 visible_units_per_tile: HashMap::<GridTile, HashSet<usize>>::new(),
             }
         }
         pub fn get_hidden_units_count(self: &TerrainGrid, tile: GridTile, ent: Entity) -> usize {
             let mut size = 0;
-            if (tile.1 as usize) < self.map.len()
-                && (tile.0 as usize) < self.map[tile.1 as usize].len()
+            if (tile.row as usize) < self.map.len()
+                && (tile.col as usize) < self.map[tile.row as usize].len()
             {
-                size = self.map[tile.1 as usize][tile.0 as usize].hidden_units[ent as usize].len();
+                size =
+                    self.map[tile.row as usize][tile.col as usize].hidden_units[ent as usize].len();
             }
             size
         }
 
         pub fn get_owned_units_count(self: &TerrainGrid, tile: GridTile, ent: Entity) -> usize {
             let mut size = 0;
-            if (tile.1 as usize) < self.map.len()
-                && (tile.0 as usize) < self.map[tile.1 as usize].len()
+            if (tile.row as usize) < self.map.len()
+                && (tile.col as usize) < self.map[tile.row as usize].len()
             {
-                size = self.map[tile.1 as usize][tile.0 as usize].visible_units[ent as usize].len();
+                size = self.map[tile.row as usize][tile.col as usize].visible_units[ent as usize]
+                    .len();
             }
             size
         }
 
-        pub fn get_title_for_cord(self: &mut TerrainGrid, tile: GridTile) -> Option<&mut TileInfo> {
-            if (tile.1 as usize) < self.map.len()
-                && (tile.0 as usize) < self.map[tile.1 as usize].len()
+        pub fn get_tile_for_coord(self: &mut TerrainGrid, tile: GridTile) -> Option<&mut TileInfo> {
+            if (tile.row as usize) < self.map.len()
+                && (tile.col as usize) < self.map[tile.row as usize].len()
             {
-                return Some(&mut self.map[tile.1 as usize][tile.0 as usize]);
+                return Some(&mut self.map[tile.row as usize][tile.col as usize]);
             }
             None
         }
 
         pub fn get_tile_info(self: &TerrainGrid, tile: GridTile) -> Option<&TileInfo> {
-            if (tile.1 as usize) < self.map.len()
-                && (tile.0 as usize) < self.map[tile.1 as usize].len()
+            if (tile.row as usize) < self.map.len()
+                && (tile.col as usize) < self.map[tile.row as usize].len()
             {
-                Some(&self.map[tile.1 as usize][tile.0 as usize])
+                Some(&self.map[tile.row as usize][tile.col as usize])
             } else {
                 None
             }
         }
 
-        pub fn get_titletype_for_cord(
-            self: &mut TerrainGrid,
-            tile: GridTile,
-        ) -> Option<TerrainTilesEnum> {
-            if let Some(tile_info) = self.get_title_for_cord(tile) {
+        pub fn get_terrain_at(self: &mut TerrainGrid, tile: GridTile) -> Option<TerrainTilesEnum> {
+            if let Some(tile_info) = self.get_tile_for_coord(tile) {
                 return Some(tile_info.terrain_type);
             }
             None
@@ -105,10 +104,10 @@ pub mod terrain {
             tile: GridTile,
             infra_type: InfrastructureEnum,
         ) -> bool {
-            if (tile.1 as usize) < self.map.len()
-                && (tile.0 as usize) < self.map[tile.1 as usize].len()
+            if (tile.row as usize) < self.map.len()
+                && (tile.col as usize) < self.map[tile.row as usize].len()
             {
-                self.map[tile.1 as usize][tile.0 as usize]
+                self.map[tile.row as usize][tile.col as usize]
                     .infrastruct
                     .contains_key(&infra_type)
             } else {
@@ -121,12 +120,12 @@ pub mod terrain {
             tile: GridTile,
             unit_type: UnitTilesEnum,
         ) -> bool {
-            if (tile.1 as usize) < self.map.len()
-                && (tile.0 as usize) < self.map[tile.1 as usize].len()
+            if (tile.row as usize) < self.map.len()
+                && (tile.col as usize) < self.map[tile.row as usize].len()
             {
-                if let Some(factory) = self.map[tile.1 as usize][tile.0 as usize]
+                if let Some(factory) = self.map[tile.row as usize][tile.col as usize]
                     .infrastruct
-                    .get(&InfrastructureEnum::Fatory)
+                    .get(&InfrastructureEnum::Factory)
                 {
                     if let Some(unit_production) = factory.lock().unwrap().unit_production.as_mut()
                     {
@@ -140,7 +139,7 @@ pub mod terrain {
 
         pub fn get_factory_allowed_units(&self, tile: GridTile) -> Vec<UnitTilesEnum> {
             if let Some(tile_info) = self.get_tile_info(tile) {
-                if let Some(factory) = tile_info.infrastruct.get(&InfrastructureEnum::Fatory) {
+                if let Some(factory) = tile_info.infrastruct.get(&InfrastructureEnum::Factory) {
                     if let Some(unit_prod) = &factory.lock().unwrap().unit_production {
                         return unit_prod.allowed_units.iter().cloned().collect();
                     }
@@ -154,10 +153,10 @@ pub mod terrain {
             tile: GridTile,
             unit_type: UnitTilesEnum,
         ) -> bool {
-            if (tile.1 as usize) < self.map.len()
-                && (tile.0 as usize) < self.map[tile.1 as usize].len()
+            if (tile.row as usize) < self.map.len()
+                && (tile.col as usize) < self.map[tile.row as usize].len()
             {
-                if let Some(airfield) = self.map[tile.1 as usize][tile.0 as usize]
+                if let Some(airfield) = self.map[tile.row as usize][tile.col as usize]
                     .infrastruct
                     .get(&InfrastructureEnum::Airfield)
                 {
@@ -215,7 +214,7 @@ pub mod terrain {
             tile: GridTile,
             ent: Entity,
         ) {
-            if let Some(end_tile_info) = self.get_title_for_cord(tile) {
+            if let Some(end_tile_info) = self.get_tile_for_coord(tile) {
                 TerrainGrid::add_unit(unit_id, end_tile_info, ent);
             }
         }
@@ -223,13 +222,13 @@ pub mod terrain {
             tile_info.hidden_units[ent as usize].remove(&unit_id);
         }
         pub fn remove_unit(self: &mut TerrainGrid, unit_id: usize, tile: GridTile, ent: Entity) {
-            if let Some(tile_info) = self.get_title_for_cord(tile) {
+            if let Some(tile_info) = self.get_tile_for_coord(tile) {
                 tile_info.hidden_units[ent as usize].remove(&unit_id);
                 tile_info.visible_units[ent as usize].remove(&unit_id);
             }
         }
         pub fn make_visible(self: &mut TerrainGrid, unit_id: usize, tile: GridTile, ent: Entity) {
-            if let Some(t) = self.get_title_for_cord(tile) {
+            if let Some(t) = self.get_tile_for_coord(tile) {
                 t.hidden_units[ent as usize].remove(&unit_id);
                 t.visible_units[ent as usize].insert(unit_id);
             }
@@ -249,12 +248,12 @@ pub mod terrain {
             ent: Entity,
         ) -> (bool, bool) {
             let mut res = (false, false);
-            if let Some(end_tile_info) = self.get_title_for_cord(move_to_tile) {
+            if let Some(end_tile_info) = self.get_tile_for_coord(move_to_tile) {
                 TerrainGrid::add_unit(unit_id, end_tile_info, ent);
                 res = (true, TerrainGrid::has_mines(end_tile_info));
             }
             if res.0 {
-                if let Some(start_tile_info) = self.get_title_for_cord(move_from_tile) {
+                if let Some(start_tile_info) = self.get_tile_for_coord(move_from_tile) {
                     TerrainGrid::remove_hidden_unit(unit_id, start_tile_info, ent);
                 } else {
                     res.0 = false;
@@ -271,10 +270,10 @@ pub mod terrain {
             player_type: Entity,
         ) {
             let count: usize = self.get_hidden_units_count(center, player_type);
-            let probs = self.probability_generation.ProbabilityRollVect(count);
+            let probs = self.probability_generation.roll_vec(count);
 
             let mut detected_units = Vec::<usize>::new();
-            if let Some(tile_data) = self.get_title_for_cord(center) {
+            if let Some(tile_data) = self.get_tile_for_coord(center) {
                 //run through hidden units and check which ones were detected
                 detected_units = tile_data.hidden_units[player_type as usize]
                     .iter()
@@ -305,40 +304,41 @@ pub mod terrain {
             detect_possiblity: usize,
             player_type: Entity,
         ) {
-            let min_y = if distance <= center.1 {
-                center.1 - distance
+            let min_row = if distance <= center.row {
+                center.row - distance
             } else {
                 0
             };
-            let max_y = if center.1 + distance >= (self.map.len() - 1) as u16 {
+            let max_row = if center.row + distance >= (self.map.len() - 1) as u16 {
                 (self.map.len() - 1) as u16
             } else {
-                center.1 + distance
+                center.row + distance
             };
-            let min_x = if distance <= center.0 {
-                center.0 - distance
+            let min_col = if distance <= center.col {
+                center.col - distance
             } else {
                 0
             };
-            let max_x = if center.0 + distance > (self.map[center.1 as usize].len() - 1) as u16 {
-                (self.map.len() - 1) as u16
-            } else {
-                center.0 + distance
-            };
+            let max_col =
+                if center.col + distance > (self.map[center.row as usize].len() - 1) as u16 {
+                    (self.map.len() - 1) as u16
+                } else {
+                    center.col + distance
+                };
             let detected_ent = Entity::get_opposite(player_type);
 
             // scan the square around the center tile and check for hidden units
-            for x in min_x..=max_x {
-                self.scan_square((x, max_y), detect_possiblity, detected_ent);
+            for c in min_col..=max_col {
+                self.scan_square(GridTile::new(max_row, c), detect_possiblity, detected_ent);
             }
-            for x in min_x..=max_x {
-                self.scan_square((x, min_y), detect_possiblity, detected_ent);
+            for c in min_col..=max_col {
+                self.scan_square(GridTile::new(min_row, c), detect_possiblity, detected_ent);
             }
-            for y in min_y + 1..max_y {
-                self.scan_square((max_x, y), detect_possiblity, detected_ent);
+            for r in min_row + 1..max_row {
+                self.scan_square(GridTile::new(r, max_col), detect_possiblity, detected_ent);
             }
-            for y in min_y + 1..max_y {
-                self.scan_square((min_x, y), detect_possiblity, detected_ent);
+            for r in min_row + 1..max_row {
+                self.scan_square(GridTile::new(r, min_col), detect_possiblity, detected_ent);
             }
         }
         pub fn unit_detection_chance(
@@ -352,11 +352,25 @@ pub mod terrain {
                 self.scan_around(tile, r as u16, detect_possiblity / r, ent);
             }
         }
+        pub fn map_dimensions(&self) -> (usize, usize) {
+            (self.map.len(), self.map.first().map_or(0, |r| r.len()))
+        }
+
+        pub fn get_terrain_type(&self, tile: GridTile) -> Option<TerrainTilesEnum> {
+            self.get_tile_info(tile).map(|t| t.terrain_type)
+        }
+
+        pub fn get_tile_infrastructure(&self, tile: GridTile) -> Vec<InfrastructureEnum> {
+            self.get_tile_info(tile)
+                .map(|t| t.infrastruct.keys().cloned().collect())
+                .unwrap_or_default()
+        }
+
         pub fn add_infr(self: &mut TerrainGrid, new_infr: Arc<Mutex<infstrt::InfrObject>>) {
             let tp = new_infr.lock().unwrap().infr_type;
             let loc = new_infr.lock().unwrap().location;
 
-            if let Some(tile_info) = self.get_title_for_cord(loc) {
+            if let Some(tile_info) = self.get_tile_for_coord(loc) {
                 tile_info.infrastruct.insert(tp, new_infr);
             }
         }

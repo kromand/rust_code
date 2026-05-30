@@ -1,10 +1,21 @@
 pub const TILE_SIZE: (f32, f32) = (40.0, 40.0);
-pub type GridTile = (u16, u16);
 pub type PixelOffset = (f32, f32);
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub struct GridTile {
+    pub row: u16,
+    pub col: u16,
+}
+
+impl GridTile {
+    pub fn new(row: u16, col: u16) -> Self {
+        GridTile { row, col }
+    }
+}
 
 use strum_macros::Display;
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Display, Clone, Copy)]
 pub enum TerrainTilesEnum {
     Forest,
     Ocean,
@@ -29,9 +40,9 @@ impl Entity {
     }
 }
 
-#[derive(Clone, Copy, Eq, PartialEq, Hash, Debug)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash, Debug, Display)]
 pub enum InfrastructureEnum {
-    Fatory,
+    Factory,
     Mines,
     Airfield,
     Bunker,
@@ -63,21 +74,21 @@ pub enum MoveResult {
     UnitDestroyed,
 }
 
-pub const AIR_UNITS:[UnitTilesEnum; 3] = [
-                    UnitTilesEnum::AttackHeli,
-                    UnitTilesEnum::TransportHeli,
-                    UnitTilesEnum::Plane,
-                ];
+pub const AIR_UNITS: [UnitTilesEnum; 3] = [
+    UnitTilesEnum::AttackHeli,
+    UnitTilesEnum::TransportHeli,
+    UnitTilesEnum::Plane,
+];
 
-pub const LAND_UNITS:[UnitTilesEnum; 7] = [
-                        UnitTilesEnum::Tank,
-                        UnitTilesEnum::Infantry,
-                        UnitTilesEnum::Scout,
-                        UnitTilesEnum::Engineers,
-                        UnitTilesEnum::APC,
-                        UnitTilesEnum::RocketArty,
-                        UnitTilesEnum::Artillery,
-                ];
+pub const LAND_UNITS: [UnitTilesEnum; 7] = [
+    UnitTilesEnum::Tank,
+    UnitTilesEnum::Infantry,
+    UnitTilesEnum::Scout,
+    UnitTilesEnum::Engineers,
+    UnitTilesEnum::APC,
+    UnitTilesEnum::RocketArty,
+    UnitTilesEnum::Artillery,
+];
 
 pub fn is_air_unit(unit_type: UnitTilesEnum) -> bool {
     AIR_UNITS.contains(&unit_type)

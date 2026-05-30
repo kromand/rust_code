@@ -1,6 +1,6 @@
 pub mod infstrt {
     use crate::defines::*;
-    use crate::units::Units::{UnitId, UnitInfo};
+    use crate::units::units::{UnitId, UnitInfo};
     use macroquad::prelude::*;
     use std::collections::HashSet;
     use std::collections::VecDeque;
@@ -37,19 +37,19 @@ pub mod infstrt {
         }
     }
 
-    pub struct InfrastuctureTextures {
+    pub struct InfrastructureTextures {
         infra_textures: Vec<TextureContainer>,
     }
-    impl InfrastuctureTextures {
-        pub async fn new() -> Result<Box<InfrastuctureTextures>, macroquad::Error> {
+    impl InfrastructureTextures {
+        pub async fn new() -> Result<Box<InfrastructureTextures>, macroquad::Error> {
             let vct = vec![
-                InfrastuctureTextures::load_default_factory_textures(20).await?,
-                InfrastuctureTextures::load_default_mines_textures().await?,
-                InfrastuctureTextures::load_default_airfield_textures().await?,
-                InfrastuctureTextures::load_default_bunkers_textures().await?,
+                InfrastructureTextures::load_default_factory_textures(20).await?,
+                InfrastructureTextures::load_default_mines_textures().await?,
+                InfrastructureTextures::load_default_airfield_textures().await?,
+                InfrastructureTextures::load_default_bunkers_textures().await?,
             ];
 
-            Ok(Box::new(InfrastuctureTextures {
+            Ok(Box::new(InfrastructureTextures {
                 infra_textures: vct,
             }))
         }
@@ -96,7 +96,7 @@ pub mod infstrt {
         }
 
         pub fn get_infra_texture(
-            self: &mut InfrastuctureTextures,
+            self: &mut InfrastructureTextures,
             i_type: InfrastructureEnum,
         ) -> &Texture2D {
             &self.infra_textures[i_type as usize].get_next_texture(i_type)
@@ -189,7 +189,7 @@ pub mod infstrt {
 
     impl InfrObject {
         pub fn new(obj_type: InfrastructureEnum, loc: GridTile, own: Entity) -> InfrObject {
-            if obj_type == InfrastructureEnum::Fatory {
+            if obj_type == InfrastructureEnum::Factory {
                 InfrObject {
                     infr_type: obj_type,
                     count: 0,
@@ -241,16 +241,16 @@ pub mod infstrt {
             self.infr_objects.push(new_infr);
         }
         //add few test infra objects (mines, factory...)
-        pub fn Init(self: &mut InfrastructureContainer) {
+        pub fn init(self: &mut InfrastructureContainer) {
             //add start objects
             self.infr_objects.push(Arc::new(Mutex::new(InfrObject::new(
-                InfrastructureEnum::Fatory,
-                (18, 5),
+                InfrastructureEnum::Factory,
+                GridTile::new(5, 18),
                 Entity::AI,
             ))));
             self.infr_objects.push(Arc::new(Mutex::new(InfrObject::new(
-                InfrastructureEnum::Fatory,
-                (2, 2),
+                InfrastructureEnum::Factory,
+                GridTile::new(2, 2),
                 Entity::Player,
             ))));
             //test adding to production queue, since the first unit will be produced after 5 iterations, we can check if the iterate infrastructure function is working properly
@@ -266,25 +266,25 @@ pub mod infstrt {
 
             self.infr_objects.push(Arc::new(Mutex::new(InfrObject::new(
                 InfrastructureEnum::Bunker,
-                (2, 3),
+                GridTile::new(3, 2),
                 Entity::Player,
             ))));
 
             self.infr_objects.push(Arc::new(Mutex::new(InfrObject::new(
                 InfrastructureEnum::Airfield,
-                (2, 4),
+                GridTile::new(4, 2),
                 Entity::Player,
             ))));
 
             self.infr_objects.push(Arc::new(Mutex::new(InfrObject::new(
                 InfrastructureEnum::Mines,
-                (2, 5),
+                GridTile::new(5, 2),
                 Entity::Player,
             ))));
 
             self.infr_objects.push(Arc::new(Mutex::new(InfrObject::new(
                 InfrastructureEnum::Mines,
-                (19, 5),
+                GridTile::new(5, 19),
                 Entity::AI,
             ))));
         }
