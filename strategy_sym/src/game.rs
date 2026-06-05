@@ -3,7 +3,7 @@ use crate::draw::{Textures, paint_tile_at_pixel};
 use crate::map::terrain::TerrainGrid;
 use crate::mouse::MouseTracker;
 use crate::random;
-use crate::units::units::*;
+use crate::units::unit::*;
 
 pub fn process_unit_movement(
     new_pos: GridTile,
@@ -55,6 +55,7 @@ pub async fn handle_unit_interaction(
     textures: &mut Textures,
     map: &mut TerrainGrid,
     _enemy_units: &AiUnits,
+    destroyed_units: &mut Vec<DestroyedUnit>,
 ) -> Option<GridTile> {
     if mouse.is_dragging() {
         let pixel = mouse.get_click_drag_draw_offset();
@@ -63,19 +64,15 @@ pub async fn handle_unit_interaction(
 
         if let Some(unit) = player_units_map
             .units_by_tile
-            .get(&drag_source.unwrap())
-            .and_then(|stack| stack.units.get(&id))
+            .get_mut(&drag_source.unwrap())
+            .and_then(|stack| stack.units.get_mut(&id))
         {
-            paint_tile_at_pixel(
-                pixel,
-                TILE_SIZE,
-                textures.units.get_texture(
-                    unit.unit_type,
-                    health_to_texture_type(unit.health / unit.max_health),
-                ),
-                false,
-            )
-            .await;
+            let texture = textures.units.get_texture(
+                unit.unit_type,
+                health_to_texture_type(unit.health / unit.max_health),
+                &mut unit.frame_itr,
+            );
+            paint_tile_at_pixel(pixel, TILE_SIZE, texture, false).await;
         }
         drag_source
     } else {
@@ -90,6 +87,7 @@ pub async fn handle_unit_interaction(
                 .units
                 .get_mut(&id)
             {
+                let unit_type = unit.unit_type;
                 match process_unit_movement(new_position, unit, map) {
                     MoveResult::Success => {
                         player_units_map.move_unit(start_pos, id, new_position);
@@ -97,6 +95,9 @@ pub async fn handle_unit_interaction(
                     MoveResult::InvalidMove => {}
                     MoveResult::UnitDestroyed => {
                         player_units_map.remove_unit(start_pos, id);
+                        if unit_has_destruction_animation(unit_type) {
+                            destroyed_units.push(DestroyedUnit::new(unit_type, new_position));
+                        }
                     }
                 }
             }

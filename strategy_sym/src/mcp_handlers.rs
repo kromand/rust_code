@@ -2,7 +2,7 @@ use crate::defines::*;
 use crate::game::process_unit_movement;
 use crate::map::terrain::TerrainGrid;
 use crate::mcp_server::McpCommand;
-use crate::units::units::{AiUnits, PlayerUnits};
+use crate::units::unit::{AiUnits, DestroyedUnit, PlayerUnits, unit_has_destruction_animation};
 
 // ---------------------------------------------------------------------------
 // Per-command handlers — called by process_mcp_commands each frame
@@ -13,6 +13,7 @@ pub fn mcp_move_unit(
     target: GridTile,
     player_units: &mut PlayerUnits,
     map: &mut TerrainGrid,
+    destroyed_units: &mut Vec<DestroyedUnit>,
 ) -> String {
     let start_tile = match player_units.find_unit_tile(unit_id) {
         Some(t) => t,
@@ -37,6 +38,7 @@ pub fn mcp_move_unit(
         .and_then(|s| s.units.get_mut(&unit_id))
         .unwrap();
 
+    let unit_type = unit.unit_type;
     match process_unit_movement(target, unit, map) {
         MoveResult::Success => {
             player_units.move_unit(start_tile, unit_id, target);
@@ -44,6 +46,9 @@ pub fn mcp_move_unit(
         }
         MoveResult::UnitDestroyed => {
             player_units.remove_unit(start_tile, unit_id);
+            if unit_has_destruction_animation(unit_type) {
+                destroyed_units.push(DestroyedUnit::new(unit_type, target));
+            }
             format!(
                 "Unit {} destroyed by mines at ({},{})",
                 unit_id, target.row, target.col
@@ -127,6 +132,7 @@ pub fn process_mcp_commands(
     player_units: &mut PlayerUnits,
     enemy_units: &AiUnits,
     map: &mut TerrainGrid,
+    destroyed_units: &mut Vec<DestroyedUnit>,
 ) {
     while let Ok(cmd) = cmd_rx.try_recv() {
         match cmd {
@@ -135,7 +141,7 @@ pub fn process_mcp_commands(
                 target,
                 resp,
             } => {
-                let _ = resp.send(mcp_move_unit(unit_id, target, player_units, map));
+                let _ = resp.send(mcp_move_unit(unit_id, target, player_units, map,destroyed_units));
             }
             McpCommand::ListPlayerUnits { resp } => {
                 let _ = resp.send(mcp_list_player_units(player_units));

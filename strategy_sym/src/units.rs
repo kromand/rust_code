@@ -1,4 +1,4 @@
-pub mod units {
+pub mod unit {
     use crate::defines::*;
     use macroquad::prelude::*;
     use std::{
@@ -7,6 +7,14 @@ pub mod units {
     };
 
     const DEFAULT_TANK_TEXTURE_FILE: &str = "assets/tank_pix.png";
+    const DEFAULT_TANK_DMG_1_TEXTURE_FILE: &str = "assets/tank_dmg_1.png";
+    const DEFAULT_TANK_DMG_2_TEXTURE_FILE: &str = "assets/tank_dmg_2.png";
+    const DEFAULT_TANK_DMG_3_TEXTURE_FILE: &str = "assets/tank_dmg_3.png";
+    const DEFAULT_TANK_DMG_4_TEXTURE_FILE: &str = "assets/tank_dmg_4.png";
+    const DEFAULT_TANK_DEST_1_TEXTURE_FILE: &str = "assets/tank_dest_1.png";
+    const DEFAULT_TANK_DEST_2_TEXTURE_FILE: &str = "assets/tank_dest_2.png";
+    const DEFAULT_TANK_DEST_3_TEXTURE_FILE: &str = "assets/tank_dest_3.png";
+    const DEFAULT_TANK_DEST_4_TEXTURE_FILE: &str = "assets/tank_dest_4.png";
     const DEFAULT_ROCKETARTY_TEXTURE_FILE: &str = "assets/rocket_arty.png";
     const DEFAULT_ARTILLERY_TEXTURE_FILE: &str = "assets/ai_arty.png";
     const DEFAULT_APC_TEXTURE_FILE: &str = "assets/apc_pix.png";
@@ -43,19 +51,7 @@ pub mod units {
         destruction: UnitTileTextures,
     }
     impl AnimateUnit {
-        pub async fn load_default_textures(
-            frame_count: usize,
-            frame_repeat_rate: usize,
-        ) -> Result<UnitTileTextures, macroquad::Error> {
-            let mut vct = Vec::<Box<dyn Iterator<Item = usize>>>::new();
-
-            for _ in 0..(UnitTilesEnum::End as usize) {
-                vct.push(Box::new(UnitTileTextures::get_repeat_seq_it(
-                    frame_count,
-                    frame_repeat_rate,
-                )));
-            }
-
+        pub async fn load_default_textures() -> Result<UnitTileTextures, macroquad::Error> {
             Ok(UnitTileTextures {
                 tank_txtr: vec![load_texture(DEFAULT_TANK_TEXTURE_FILE).await?],
                 rocket_arty_txtr: vec![load_texture(DEFAULT_ROCKETARTY_TEXTURE_FILE).await?],
@@ -67,103 +63,33 @@ pub mod units {
                 sam_txtr: vec![load_texture(DEFAULT_SAM_TEXTURE_FILE).await?],
                 infantry_txtr: vec![load_texture(DEFAULT_INFANTRY_TEXTURE_FILE).await?],
                 scout_txtr: vec![load_texture(DEFAULT_SCOUT_TEXTURE_FILE).await?],
-                frame_itr: vct,
             })
         }
-        pub async fn load_damage_textures(
-            frame_repeat_rate: usize,
-        ) -> Result<UnitTileTextures, macroquad::Error> {
-            // Load textures first
-            let tank_txtr = vec![load_texture(DEFAULT_TANK_TEXTURE_FILE).await?];
-            let rocket_arty_txtr = vec![load_texture(DEFAULT_ROCKETARTY_TEXTURE_FILE).await?];
-            let artillery_txtr = vec![load_texture(DEFAULT_ARTILLERY_TEXTURE_FILE).await?];
-            let apc_txtr = vec![
-                load_texture(DEFAULT_APC_DMG_1_TEXTURE_FILE).await?,
-                load_texture(DEFAULT_APC_DMG_2_TEXTURE_FILE).await?,
-                load_texture(DEFAULT_APC_DMG_3_TEXTURE_FILE).await?,
-                load_texture(DEFAULT_APC_DMG_4_TEXTURE_FILE).await?,
-            ];
-
-            let attack_heli_txtr = vec![load_texture(DEFAULT_ATTACK_HELI_TEXTURE_FILE).await?];
-            let transport_heli_txtr =
-                vec![load_texture(DEFAULT_TRANSPORT_HELI_TEXTURE_FILE).await?];
-            let plane_txtr = vec![load_texture(DEFAULT_PLANE_TEXTURE_FILE).await?];
-            let sam_txtr = vec![load_texture(DEFAULT_SAM_TEXTURE_FILE).await?];
-            let infantry_txtr = vec![load_texture(DEFAULT_INFANTRY_TEXTURE_FILE).await?];
-            let scout_txtr = vec![load_texture(DEFAULT_SCOUT_TEXTURE_FILE).await?];
-
-            // Initialize frame_itr with vector sizes
-            let mut vct = Vec::<Box<dyn Iterator<Item = usize>>>::new();
-            vct.push(Box::new(UnitTileTextures::get_repeat_seq_it(
-                tank_txtr.len(),
-                frame_repeat_rate,
-            )));
-            vct.push(Box::new(UnitTileTextures::get_repeat_seq_it(
-                rocket_arty_txtr.len(),
-                frame_repeat_rate,
-            )));
-            vct.push(Box::new(UnitTileTextures::get_repeat_seq_it(
-                artillery_txtr.len(),
-                frame_repeat_rate,
-            )));
-            vct.push(Box::new(UnitTileTextures::get_repeat_seq_it(
-                artillery_txtr.len(),
-                frame_repeat_rate,
-            )));
-            vct.push(Box::new(UnitTileTextures::get_repeat_seq_it(
-                apc_txtr.len(),
-                frame_repeat_rate,
-            )));
-            vct.push(Box::new(UnitTileTextures::get_repeat_seq_it(
-                attack_heli_txtr.len(),
-                frame_repeat_rate,
-            )));
-            vct.push(Box::new(UnitTileTextures::get_repeat_seq_it(
-                transport_heli_txtr.len(),
-                frame_repeat_rate,
-            )));
-            vct.push(Box::new(UnitTileTextures::get_repeat_seq_it(
-                plane_txtr.len(),
-                frame_repeat_rate,
-            )));
-            vct.push(Box::new(UnitTileTextures::get_repeat_seq_it(
-                sam_txtr.len(),
-                frame_repeat_rate,
-            )));
-            vct.push(Box::new(UnitTileTextures::get_repeat_seq_it(
-                infantry_txtr.len(),
-                frame_repeat_rate,
-            )));
-            vct.push(Box::new(UnitTileTextures::get_repeat_seq_it(
-                scout_txtr.len(),
-                frame_repeat_rate,
-            )));
-
+        pub async fn load_damage_textures() -> Result<UnitTileTextures, macroquad::Error> {
             Ok(UnitTileTextures {
-                tank_txtr,
-                rocket_arty_txtr,
-                artillery_txtr,
-                apc_txtr,
-                attack_heli_txtr,
-                transport_heli_txtr,
-                plane_txtr,
-                sam_txtr,
-                infantry_txtr,
-                scout_txtr,
-                frame_itr: vct,
+                tank_txtr: vec![
+                    load_texture(DEFAULT_TANK_DMG_1_TEXTURE_FILE).await?,
+                    load_texture(DEFAULT_TANK_DMG_2_TEXTURE_FILE).await?,
+                    load_texture(DEFAULT_TANK_DMG_3_TEXTURE_FILE).await?,
+                    load_texture(DEFAULT_TANK_DMG_4_TEXTURE_FILE).await?,
+                ],
+                rocket_arty_txtr: vec![load_texture(DEFAULT_ROCKETARTY_TEXTURE_FILE).await?],
+                artillery_txtr: vec![load_texture(DEFAULT_ARTILLERY_TEXTURE_FILE).await?],
+                apc_txtr: vec![
+                    load_texture(DEFAULT_APC_DMG_1_TEXTURE_FILE).await?,
+                    load_texture(DEFAULT_APC_DMG_2_TEXTURE_FILE).await?,
+                    load_texture(DEFAULT_APC_DMG_3_TEXTURE_FILE).await?,
+                    load_texture(DEFAULT_APC_DMG_4_TEXTURE_FILE).await?,
+                ],
+                attack_heli_txtr: vec![load_texture(DEFAULT_ATTACK_HELI_TEXTURE_FILE).await?],
+                transport_heli_txtr: vec![load_texture(DEFAULT_TRANSPORT_HELI_TEXTURE_FILE).await?],
+                plane_txtr: vec![load_texture(DEFAULT_PLANE_TEXTURE_FILE).await?],
+                sam_txtr: vec![load_texture(DEFAULT_SAM_TEXTURE_FILE).await?],
+                infantry_txtr: vec![load_texture(DEFAULT_INFANTRY_TEXTURE_FILE).await?],
+                scout_txtr: vec![load_texture(DEFAULT_SCOUT_TEXTURE_FILE).await?],
             })
         }
-        pub async fn load_movement_textures(
-            frame_count: usize,
-            frame_repeat_rate: usize,
-        ) -> Result<UnitTileTextures, macroquad::Error> {
-            let mut vct = Vec::<Box<dyn Iterator<Item = usize>>>::new();
-
-            vct.push(Box::new(UnitTileTextures::get_repeat_seq_it(
-                frame_count,
-                frame_repeat_rate,
-            )));
-
+        pub async fn load_movement_textures() -> Result<UnitTileTextures, macroquad::Error> {
             Ok(UnitTileTextures {
                 tank_txtr: vec![load_texture(DEFAULT_TANK_TEXTURE_FILE).await?],
                 rocket_arty_txtr: vec![load_texture(DEFAULT_ROCKETARTY_TEXTURE_FILE).await?],
@@ -175,24 +101,16 @@ pub mod units {
                 sam_txtr: vec![load_texture(DEFAULT_SAM_TEXTURE_FILE).await?],
                 infantry_txtr: vec![load_texture(DEFAULT_INFANTRY_TEXTURE_FILE).await?],
                 scout_txtr: vec![load_texture(DEFAULT_SCOUT_TEXTURE_FILE).await?],
-                frame_itr: vct,
             })
         }
-        pub async fn load_destruction_textures(
-            frame_count: usize,
-            frame_repeat_rate: usize,
-        ) -> Result<UnitTileTextures, macroquad::Error> {
-            let mut vct = Vec::<Box<dyn Iterator<Item = usize>>>::new();
-
-            for _ in 0..(UnitTilesEnum::End as usize) {
-                vct.push(Box::new(UnitTileTextures::get_repeat_seq_it(
-                    frame_count,
-                    frame_repeat_rate,
-                )));
-            }
-
+        pub async fn load_destruction_textures() -> Result<UnitTileTextures, macroquad::Error> {
             Ok(UnitTileTextures {
-                tank_txtr: vec![load_texture(DEFAULT_TANK_TEXTURE_FILE).await?],
+                tank_txtr: vec![
+                    load_texture(DEFAULT_TANK_DEST_1_TEXTURE_FILE).await?,
+                    load_texture(DEFAULT_TANK_DEST_2_TEXTURE_FILE).await?,
+                    load_texture(DEFAULT_TANK_DEST_3_TEXTURE_FILE).await?,
+                    load_texture(DEFAULT_TANK_DEST_4_TEXTURE_FILE).await?,
+                ],
                 rocket_arty_txtr: vec![load_texture(DEFAULT_ROCKETARTY_TEXTURE_FILE).await?],
                 artillery_txtr: vec![load_texture(DEFAULT_ARTILLERY_TEXTURE_FILE).await?],
                 apc_txtr: vec![load_texture(DEFAULT_APC_TEXTURE_FILE).await?],
@@ -202,26 +120,31 @@ pub mod units {
                 sam_txtr: vec![load_texture(DEFAULT_SAM_TEXTURE_FILE).await?],
                 infantry_txtr: vec![load_texture(DEFAULT_INFANTRY_TEXTURE_FILE).await?],
                 scout_txtr: vec![load_texture(DEFAULT_SCOUT_TEXTURE_FILE).await?],
-                frame_itr: vct,
             })
         }
         pub async fn new() -> Result<Box<AnimateUnit>, macroquad::Error> {
             Ok(Box::new(AnimateUnit {
-                default: AnimateUnit::load_default_textures(1, 1).await?,
-                movement: AnimateUnit::load_movement_textures(1, 1).await?,
-                damage: AnimateUnit::load_damage_textures(20).await?,
-                destruction: AnimateUnit::load_destruction_textures(1, 1).await?,
+                default: AnimateUnit::load_default_textures().await?,
+                movement: AnimateUnit::load_movement_textures().await?,
+                damage: AnimateUnit::load_damage_textures().await?,
+                destruction: AnimateUnit::load_destruction_textures().await?,
             }))
         }
+        pub fn get_destruction_texture(&self, unit_type: UnitTilesEnum, frame: usize) -> &Texture2D {
+            self.destruction.get_unit_texture(unit_type, frame)
+        }
+
         pub fn get_texture(
-            self: &mut AnimateUnit,
+            &mut self,
             unit_type: UnitTilesEnum,
             texture_type: TextureType,
+            frame_itr: &mut Box<dyn Iterator<Item = usize>>,
         ) -> &Texture2D {
+            let frame = frame_itr.next().unwrap();
             match texture_type {
-                TextureType::Default => self.default.get_unit_texture(unit_type),
-                TextureType::Moving => &self.movement.get_unit_texture(unit_type),
-                TextureType::Damage => &self.damage.get_unit_texture(unit_type),
+                TextureType::Default => self.default.get_unit_texture(unit_type, frame),
+                TextureType::Moving => self.movement.get_unit_texture(unit_type, frame),
+                TextureType::Damage => self.damage.get_unit_texture(unit_type, frame),
                 _ => {
                     dbg!(texture_type);
                     unreachable!()
@@ -241,37 +164,30 @@ pub mod units {
         sam_txtr: Vec<Texture2D>,
         infantry_txtr: Vec<Texture2D>,
         scout_txtr: Vec<Texture2D>,
-        frame_itr: Vec<Box<dyn Iterator<Item = usize>>>,
     }
     impl UnitTileTextures {
         pub fn get_repeat_seq_it(len: usize, repeat: usize) -> impl Iterator<Item = usize> {
-            //to collect into a vector:
-            // (0..len).flat_map(|n| std::iter::repeat(n).take(repeat)).collect::<Vec<usize>>()
             (0..len.to_owned())
                 .flat_map(move |n| std::iter::repeat(n).take(repeat))
                 .cycle()
         }
 
-        pub fn get_unit_texture(
-            self: &mut UnitTileTextures,
-            unit_type: UnitTilesEnum,
-        ) -> &Texture2D {
-            //calling unwrap here since any frame sequence should be cyclical, infinte
-            //TODO: since death sequence will non-cyclical, need to implement that as well
-            //TODO: the iterator might need to move to unit info since each animation will be separate per unit
-            let frame_index = self.frame_itr[unit_type as usize].next().unwrap();
+        pub fn get_oneshot_seq_it(len: usize, repeat: usize) -> impl Iterator<Item = usize> {
+            (0..len).flat_map(move |n| std::iter::repeat(n).take(repeat))
+        }
 
+        pub fn get_unit_texture(&self, unit_type: UnitTilesEnum, frame: usize) -> &Texture2D {
             match unit_type {
-                UnitTilesEnum::Tank => &self.tank_txtr[frame_index],
-                UnitTilesEnum::Infantry => &self.infantry_txtr[frame_index],
-                UnitTilesEnum::Scout => &self.scout_txtr[frame_index],
-                UnitTilesEnum::RocketArty => &self.rocket_arty_txtr[frame_index],
-                UnitTilesEnum::Artillery => &self.artillery_txtr[frame_index],
-                UnitTilesEnum::APC => &self.apc_txtr[frame_index],
-                UnitTilesEnum::TransportHeli => &self.transport_heli_txtr[frame_index],
-                UnitTilesEnum::Plane => &self.plane_txtr[frame_index],
-                UnitTilesEnum::SAM => &self.sam_txtr[frame_index],
-                UnitTilesEnum::AttackHeli => &self.attack_heli_txtr[frame_index],
+                UnitTilesEnum::Tank => &self.tank_txtr[frame % self.tank_txtr.len()],
+                UnitTilesEnum::Infantry => &self.infantry_txtr[frame % self.infantry_txtr.len()],
+                UnitTilesEnum::Scout => &self.scout_txtr[frame % self.scout_txtr.len()],
+                UnitTilesEnum::RocketArty => &self.rocket_arty_txtr[frame % self.rocket_arty_txtr.len()],
+                UnitTilesEnum::Artillery => &self.artillery_txtr[frame % self.artillery_txtr.len()],
+                UnitTilesEnum::APC => &self.apc_txtr[frame % self.apc_txtr.len()],
+                UnitTilesEnum::TransportHeli => &self.transport_heli_txtr[frame % self.transport_heli_txtr.len()],
+                UnitTilesEnum::Plane => &self.plane_txtr[frame % self.plane_txtr.len()],
+                UnitTilesEnum::SAM => &self.sam_txtr[frame % self.sam_txtr.len()],
+                UnitTilesEnum::AttackHeli => &self.attack_heli_txtr[frame % self.attack_heli_txtr.len()],
                 _ => {
                     dbg!(unit_type);
                     unreachable!()
@@ -318,6 +234,7 @@ pub mod units {
         pub allowed_terrains: [bool; TerrainTilesEnum::End as usize],
         pub visibility_range: usize,
         pub prob_to_detect_units: usize,
+        pub frame_itr: Box<dyn Iterator<Item = usize>>,
     }
     impl Default for UnitInfo {
         fn default() -> Self {
@@ -333,6 +250,7 @@ pub mod units {
                 allowed_terrains: [false; TerrainTilesEnum::End as usize],
                 visibility_range: 1,
                 prob_to_detect_units: 50,
+                frame_itr: Box::new(std::iter::repeat(0usize)),
             }
         }
     }
@@ -343,6 +261,9 @@ pub mod units {
             p_id: Entity,
             loc: GridTile,
         ) -> UnitInfo {
+            let frame_itr_1 = || -> Box<dyn Iterator<Item = usize>> {
+                Box::new(UnitTileTextures::get_repeat_seq_it(1, 20))
+            };
             match tp {
                 UnitTilesEnum::Tank => UnitInfo {
                     unit_id: id_gen.get_new(),
@@ -356,6 +277,7 @@ pub mod units {
                     allowed_terrains: [true, false, false, false, true, true],
                     visibility_range: 1,
                     prob_to_detect_units: 50,
+                    frame_itr: Box::new(UnitTileTextures::get_repeat_seq_it(4, 20)),
                 },
                 UnitTilesEnum::APC => UnitInfo {
                     unit_id: id_gen.get_new(),
@@ -369,6 +291,7 @@ pub mod units {
                     allowed_terrains: [true, false, true, false, true, true],
                     visibility_range: 1,
                     prob_to_detect_units: 50,
+                    frame_itr: Box::new(UnitTileTextures::get_repeat_seq_it(4, 20)),
                 },
                 UnitTilesEnum::Artillery => UnitInfo {
                     unit_id: id_gen.get_new(),
@@ -382,6 +305,7 @@ pub mod units {
                     allowed_terrains: [true, false, true, false, true, true],
                     visibility_range: 2,
                     prob_to_detect_units: 40,
+                    frame_itr: frame_itr_1(),
                 },
                 UnitTilesEnum::RocketArty => UnitInfo {
                     unit_id: id_gen.get_new(),
@@ -395,6 +319,7 @@ pub mod units {
                     allowed_terrains: [true, false, true, false, true, true],
                     visibility_range: 3,
                     prob_to_detect_units: 45,
+                    frame_itr: frame_itr_1(),
                 },
                 UnitTilesEnum::Engineers => UnitInfo {
                     unit_id: id_gen.get_new(),
@@ -408,6 +333,7 @@ pub mod units {
                     allowed_terrains: [true, false, false, true, true, true],
                     visibility_range: 1,
                     prob_to_detect_units: 60,
+                    frame_itr: frame_itr_1(),
                 },
                 UnitTilesEnum::AttackHeli => UnitInfo {
                     unit_id: id_gen.get_new(),
@@ -421,6 +347,7 @@ pub mod units {
                     allowed_terrains: [true, true, true, true, true, true],
                     visibility_range: 3,
                     prob_to_detect_units: 90,
+                    frame_itr: frame_itr_1(),
                 },
                 UnitTilesEnum::TransportHeli => UnitInfo {
                     unit_id: id_gen.get_new(),
@@ -434,6 +361,7 @@ pub mod units {
                     allowed_terrains: [true, true, true, true, true, true],
                     visibility_range: 2,
                     prob_to_detect_units: 80,
+                    frame_itr: frame_itr_1(),
                 },
                 UnitTilesEnum::Plane => UnitInfo {
                     unit_id: id_gen.get_new(),
@@ -447,6 +375,7 @@ pub mod units {
                     allowed_terrains: [true, true, true, true, true, true],
                     visibility_range: 4,
                     prob_to_detect_units: 85,
+                    frame_itr: frame_itr_1(),
                 },
                 UnitTilesEnum::SAM => UnitInfo {
                     unit_id: id_gen.get_new(),
@@ -460,6 +389,7 @@ pub mod units {
                     allowed_terrains: [true, false, false, false, true, true],
                     visibility_range: 0,
                     prob_to_detect_units: 5,
+                    frame_itr: frame_itr_1(),
                 },
                 UnitTilesEnum::Infantry => UnitInfo {
                     unit_id: id_gen.get_new(),
@@ -473,6 +403,7 @@ pub mod units {
                     allowed_terrains: [true, false, false, true, true, true],
                     visibility_range: 1,
                     prob_to_detect_units: 70,
+                    frame_itr: frame_itr_1(),
                 },
                 UnitTilesEnum::Scout => UnitInfo {
                     unit_id: id_gen.get_new(),
@@ -486,6 +417,7 @@ pub mod units {
                     allowed_terrains: [true, false, true, true, true, true],
                     visibility_range: 2,
                     prob_to_detect_units: 70,
+                    frame_itr: frame_itr_1(),
                 },
                 _ => UnitInfo::default(),
             }
@@ -633,6 +565,36 @@ pub mod units {
             }
             false
         }
+
+        pub fn pop_unit(&mut self, tile: GridTile, unit_id: usize) -> Option<UnitInfo> {
+            self.units_by_tile
+                .get_mut(&tile)
+                .and_then(|stack| stack.units.remove(&unit_id))
+        }
+    }
+
+    pub struct DestroyedUnit {
+        pub unit_type: UnitTilesEnum,
+        pub location: GridTile,
+        frame_itr: Box<dyn Iterator<Item = usize>>,
+    }
+
+    impl DestroyedUnit {
+        pub fn new(unit_type: UnitTilesEnum, location: GridTile) -> Self {
+            DestroyedUnit {
+                unit_type,
+                location,
+                frame_itr: Box::new(UnitTileTextures::get_oneshot_seq_it(4, 20)),
+            }
+        }
+
+        pub fn next_frame(&mut self) -> Option<usize> {
+            self.frame_itr.next()
+        }
+    }
+
+    pub fn unit_has_destruction_animation(unit_type: UnitTilesEnum) -> bool {
+        matches!(unit_type, UnitTilesEnum::Tank)
     }
 
     pub struct DamageAssessment {

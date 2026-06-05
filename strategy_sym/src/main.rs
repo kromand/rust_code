@@ -1,4 +1,5 @@
 use macroquad::prelude::*;
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 mod defines;
 mod draw;
@@ -20,10 +21,55 @@ use crate::infrastructure::infstrt::*;
 use crate::map::terrain::*;
 use crate::menu::MenuType;
 use crate::mouse::MouseTracker;
-use crate::units::units::*;
+use crate::units::unit::*;
 
+
+//TODO: 
+/*
+1. Get MCP server working - currently not able to connect
+2. Add fighting. Damage system, is implemented but not used yet. Need to add attack actions and unit health.
+3. Add more unit animations
+4. Ranged units attacks
+5. MCP server should also provide infrastructure control, not just units
+6. Remove DamageUnit struct and just use UnitInfo with an optional field for damage taken. This will simplify the code and reduce the number of structs we need to manage.
+7. Expand map size
+8. Add roads and general asset work 
+9. Terrain tile textures boundaries
+
+Features to add:
+1. Tech tree
+2. Unit experience and leveling up
+
+AI suggested:
+-Refactor main loop to separate game logic and rendering more cleanly, possibly using a game state manager pattern.
+-Implement a more robust event system for handling user input and game events, rather than directly processing them in the main loop.
+-Add error handling and logging throughout the codebase to improve debugging and maintainability.
+
+*/
 #[macroquad::main("Strategy")]
 async fn main() {
+    {
+        use std::fs;
+        use std::sync::Mutex;
+        fs::create_dir_all("log").expect("failed to create log dir");
+        let log_file = fs::OpenOptions::new()
+            .append(true)
+            .create(true)
+            .open("log/events.log")
+            .expect("failed to open log/events.log");
+        tracing_subscriber::registry()
+            .with(
+                tracing_subscriber::EnvFilter::try_from_default_env()
+                    .unwrap_or_else(|_| "debug".into()),
+            )
+            .with(
+                tracing_subscriber::fmt::layer()
+                    .with_writer(Mutex::new(log_file))
+                    .with_ansi(false),
+            )
+            .init();
+    }
+
     let mut state = menu::GameState::Menu;
     let mut id_gen = UnitId::new();
 
@@ -61,6 +107,7 @@ async fn main() {
 
     let mut mouse = MouseTracker::new();
     let mut menu_content: MenuType = MenuType::Main;
+    let mut destroyed_units: Vec<DestroyedUnit> = Vec::new();
 
     loop {
         match state {
@@ -84,6 +131,7 @@ async fn main() {
                     &mut player_units_map,
                     &enemy_units,
                     &mut map,
+                    &mut destroyed_units,
                 );
 
                 let draw_unit_exception = handle_unit_interaction(
@@ -92,6 +140,7 @@ async fn main() {
                     &mut textures,
                     &mut map,
                     &enemy_units,
+                    &mut destroyed_units,
                 )
                 .await;
 
@@ -102,8 +151,9 @@ async fn main() {
                     add_unit(&mut player_units_map, &mut map, *unit);
                 }
 
-                draw_player_units(&mut textures, &player_units_map, draw_unit_exception).await;
-                draw_visible_enemy_units(&mut map, &enemy_units, &mut textures, false).await;
+                draw_player_units(&mut textures, &mut player_units_map, draw_unit_exception).await;
+                draw_visible_enemy_units(&mut map, &mut enemy_units, &mut textures, &player_units_map).await;
+                draw_destroyed_units(&mut destroyed_units, &mut textures).await;
 
                 menu::show_popup_menu(&mut mouse, &mut menu_content, &mut map, &player_units_map);
             }

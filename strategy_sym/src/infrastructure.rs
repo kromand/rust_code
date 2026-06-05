@@ -1,6 +1,6 @@
 pub mod infstrt {
     use crate::defines::*;
-    use crate::units::units::{UnitId, UnitInfo};
+    use crate::units::unit::{UnitId, UnitInfo};
     use macroquad::prelude::*;
     use std::collections::HashSet;
     use std::collections::VecDeque;

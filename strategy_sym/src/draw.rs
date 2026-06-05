@@ -1,7 +1,7 @@
 use crate::defines::*;
 use crate::infrastructure::infstrt::*;
 use crate::map::terrain::*;
-use crate::units::units::*;
+use crate::units::unit::*;
 use macroquad::prelude::*;
 
 // ---------------------------------------------------------------------------
@@ -66,73 +66,75 @@ pub async fn draw_infrastructure(
     }
 }
 
-pub async fn draw_player_unit(unit: &UnitInfo, textures: &mut Textures, position: GridTile) {
+pub async fn draw_player_unit(unit: &mut UnitInfo, textures: &mut Textures, position: GridTile) {
     let flip = matches!(unit.player_id, Entity::AI);
-    paint_tile(
-        position,
-        TILE_SIZE,
-        textures.units.get_texture(
-            unit.unit_type,
-            health_to_texture_type(unit.health / unit.max_health),
-        ),
-        flip,
-    )
-    .await;
-
-    draw_health_bar(
-        TILE_SIZE,
-        position,
-        unit.get_health_bar(),
-        Entity::Player,
-        false,
-    )
-    .await;
+    let texture = textures.units.get_texture(
+        unit.unit_type,
+        health_to_texture_type(unit.health / unit.max_health),
+        &mut unit.frame_itr,
+    );
+    paint_tile(position, TILE_SIZE, texture, flip).await;
+    draw_health_bar(TILE_SIZE, position, unit.get_health_bar(), Entity::Player, false).await;
 }
 
 pub async fn draw_player_units(
     textures: &mut Textures,
-    player_units_map: &PlayerUnits,
+    player_units_map: &mut PlayerUnits,
     exclude_tile: Option<GridTile>,
 ) {
-    for (tile, unit_stack) in &player_units_map.units_by_tile {
+    for (tile, unit_stack) in &mut player_units_map.units_by_tile {
         if exclude_tile == Some(*tile) {
             continue;
         }
-        for unit in unit_stack.units.values() {
-            draw_player_unit(unit, textures, unit.location).await;
+        for unit in unit_stack.units.values_mut() {
+            let loc = unit.location;
+            draw_player_unit(unit, textures, loc).await;
+        }
+    }
+}
+
+pub async fn draw_destroyed_units(destroyed_units: &mut Vec<DestroyedUnit>, textures: &mut Textures) {
+    let mut i = 0;
+    while i < destroyed_units.len() {
+        let frame = destroyed_units[i].next_frame();
+        match frame {
+            Some(frame) => {
+                let unit_type = destroyed_units[i].unit_type;
+                let loc = destroyed_units[i].location;
+                let texture = textures.units.get_destruction_texture(unit_type, frame);
+                paint_tile(loc, TILE_SIZE, texture, false).await;
+                i += 1;
+            }
+            None => {
+                destroyed_units.swap_remove(i);
+            }
         }
     }
 }
 
 pub async fn draw_visible_enemy_units(
     map: &mut TerrainGrid,
-    enemy_units: &AiUnits,
+    enemy_units: &mut AiUnits,
     textures: &mut Textures,
-    enemy_units_present: bool,
+    player_units: &PlayerUnits,
 ) {
     for (_, unit_ids) in &map.visible_units_per_tile {
         for unit_id in unit_ids {
-            if let Some(unit) = enemy_units.units.get(unit_id) {
+            if let Some(unit) = enemy_units.units.get_mut(unit_id) {
                 let flip = matches!(unit.player_id, Entity::AI);
-                paint_tile(
-                    unit.location,
-                    TILE_SIZE,
-                    textures.units.get_texture(
-                        unit.unit_type,
-                        health_to_texture_type(unit.health / unit.max_health),
-                    ),
-                    flip,
-                )
-                .await;
-
-                draw_health_bar(
-                    TILE_SIZE,
-                    unit.location,
-                    unit.get_health_bar(),
-                    Entity::AI,
-                    enemy_units_present,
-                )
-                .await;
+                let loc = unit.location;
+                let health_bar = unit.get_health_bar();
+                let players_present = player_units
+                    .units_by_tile
+                    .get(&loc)
+                    .map_or(false, |s| !s.units.is_empty());
+                let texture = textures.units.get_texture(
+                    unit.unit_type,
+                    health_to_texture_type(unit.health / unit.max_health),
+                    &mut unit.frame_itr,
+                );
+                paint_tile(loc, TILE_SIZE, texture, flip).await;
+                draw_health_bar(TILE_SIZE, loc, health_bar, Entity::AI, players_present).await;
             }
         }
     }
