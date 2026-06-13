@@ -27,6 +27,14 @@ pub mod unit {
     const DEFAULT_PLANE_TEXTURE_FILE: &str = "assets/plane.png";
     const DEFAULT_SAM_TEXTURE_FILE: &str = "assets/sam.png";
     const DEFAULT_INFANTRY_TEXTURE_FILE: &str = "assets/infantry_pix.png";
+    const DEFAULT_INFANTRY_DMG_1_TEXTURE_FILE: &str = "assets/infantry_dmg1.png";
+    const DEFAULT_INFANTRY_DMG_2_TEXTURE_FILE: &str = "assets/infantry_dmg2.png";
+    const DEFAULT_INFANTRY_DMG_3_TEXTURE_FILE: &str = "assets/infantry_dmg3.png";
+    const DEFAULT_INFANTRY_DMG_4_TEXTURE_FILE: &str = "assets/infantry_dmg4.png";
+    const DEFAULT_INFANTRY_DEST_1_TEXTURE_FILE: &str = "assets/infantry_dest_1.png";
+    const DEFAULT_INFANTRY_DEST_2_TEXTURE_FILE: &str = "assets/infantry_dest_2.png";
+    const DEFAULT_INFANTRY_DEST_3_TEXTURE_FILE: &str = "assets/infantry_dest_3.png";
+    const DEFAULT_INFANTRY_DEST_4_TEXTURE_FILE: &str = "assets/infantry_dest_4.png";
     const DEFAULT_SCOUT_TEXTURE_FILE: &str = "assets/scouts.png";
 
     #[derive(Debug)]
@@ -85,7 +93,12 @@ pub mod unit {
                 transport_heli_txtr: vec![load_texture(DEFAULT_TRANSPORT_HELI_TEXTURE_FILE).await?],
                 plane_txtr: vec![load_texture(DEFAULT_PLANE_TEXTURE_FILE).await?],
                 sam_txtr: vec![load_texture(DEFAULT_SAM_TEXTURE_FILE).await?],
-                infantry_txtr: vec![load_texture(DEFAULT_INFANTRY_TEXTURE_FILE).await?],
+                infantry_txtr: vec![
+                    load_texture(DEFAULT_INFANTRY_DMG_1_TEXTURE_FILE).await?,
+                    load_texture(DEFAULT_INFANTRY_DMG_2_TEXTURE_FILE).await?,
+                    load_texture(DEFAULT_INFANTRY_DMG_3_TEXTURE_FILE).await?,
+                    load_texture(DEFAULT_INFANTRY_DMG_4_TEXTURE_FILE).await?,
+                ],
                 scout_txtr: vec![load_texture(DEFAULT_SCOUT_TEXTURE_FILE).await?],
             })
         }
@@ -118,7 +131,12 @@ pub mod unit {
                 transport_heli_txtr: vec![load_texture(DEFAULT_TRANSPORT_HELI_TEXTURE_FILE).await?],
                 plane_txtr: vec![load_texture(DEFAULT_PLANE_TEXTURE_FILE).await?],
                 sam_txtr: vec![load_texture(DEFAULT_SAM_TEXTURE_FILE).await?],
-                infantry_txtr: vec![load_texture(DEFAULT_INFANTRY_TEXTURE_FILE).await?],
+                infantry_txtr: vec![
+                    load_texture(DEFAULT_INFANTRY_DEST_1_TEXTURE_FILE).await?,
+                    load_texture(DEFAULT_INFANTRY_DEST_2_TEXTURE_FILE).await?,
+                    load_texture(DEFAULT_INFANTRY_DEST_3_TEXTURE_FILE).await?,
+                    load_texture(DEFAULT_INFANTRY_DEST_4_TEXTURE_FILE).await?,
+                ],
                 scout_txtr: vec![load_texture(DEFAULT_SCOUT_TEXTURE_FILE).await?],
             })
         }
@@ -130,7 +148,11 @@ pub mod unit {
                 destruction: AnimateUnit::load_destruction_textures().await?,
             }))
         }
-        pub fn get_destruction_texture(&self, unit_type: UnitTilesEnum, frame: usize) -> &Texture2D {
+        pub fn get_destruction_texture(
+            &self,
+            unit_type: UnitTilesEnum,
+            frame: usize,
+        ) -> &Texture2D {
             self.destruction.get_unit_texture(unit_type, frame)
         }
 
@@ -181,13 +203,19 @@ pub mod unit {
                 UnitTilesEnum::Tank => &self.tank_txtr[frame % self.tank_txtr.len()],
                 UnitTilesEnum::Infantry => &self.infantry_txtr[frame % self.infantry_txtr.len()],
                 UnitTilesEnum::Scout => &self.scout_txtr[frame % self.scout_txtr.len()],
-                UnitTilesEnum::RocketArty => &self.rocket_arty_txtr[frame % self.rocket_arty_txtr.len()],
+                UnitTilesEnum::RocketArty => {
+                    &self.rocket_arty_txtr[frame % self.rocket_arty_txtr.len()]
+                }
                 UnitTilesEnum::Artillery => &self.artillery_txtr[frame % self.artillery_txtr.len()],
                 UnitTilesEnum::APC => &self.apc_txtr[frame % self.apc_txtr.len()],
-                UnitTilesEnum::TransportHeli => &self.transport_heli_txtr[frame % self.transport_heli_txtr.len()],
+                UnitTilesEnum::TransportHeli => {
+                    &self.transport_heli_txtr[frame % self.transport_heli_txtr.len()]
+                }
                 UnitTilesEnum::Plane => &self.plane_txtr[frame % self.plane_txtr.len()],
                 UnitTilesEnum::SAM => &self.sam_txtr[frame % self.sam_txtr.len()],
-                UnitTilesEnum::AttackHeli => &self.attack_heli_txtr[frame % self.attack_heli_txtr.len()],
+                UnitTilesEnum::AttackHeli => {
+                    &self.attack_heli_txtr[frame % self.attack_heli_txtr.len()]
+                }
                 _ => {
                     dbg!(unit_type);
                     unreachable!()
@@ -240,7 +268,7 @@ pub mod unit {
         fn default() -> Self {
             UnitInfo {
                 unit_id: 1,
-                player_id: Entity::AI,
+                player_id: Entity::Enemy,
                 unit_name: "martian riders".to_owned(),
                 unit_type: UnitTilesEnum::End,
                 max_health: 100.0,
@@ -403,7 +431,7 @@ pub mod unit {
                     allowed_terrains: [true, false, false, true, true, true],
                     visibility_range: 1,
                     prob_to_detect_units: 70,
-                    frame_itr: frame_itr_1(),
+                    frame_itr: Box::new(UnitTileTextures::get_repeat_seq_it(4, 20)),
                 },
                 UnitTilesEnum::Scout => UnitInfo {
                     unit_id: id_gen.get_new(),
@@ -437,6 +465,13 @@ pub mod unit {
         pub fn get_health_bar(self: &UnitInfo) -> f32 {
             self.health / self.max_health
         }
+        /// Switches the unit's animation to the one-shot destruction sequence.
+        pub fn start_destruction(self: &mut UnitInfo) {
+            self.frame_itr = Box::new(UnitTileTextures::get_oneshot_seq_it(4, 20));
+        }
+        pub fn next_frame(self: &mut UnitInfo) -> Option<usize> {
+            self.frame_itr.next()
+        }
         pub fn assess_damage(self: &mut UnitInfo, prob: usize) -> bool {
             if prob <= 85 {
                 self.takes_damage(0.3 * self.max_health);
@@ -445,38 +480,12 @@ pub mod unit {
         }
     }
 
-    pub struct AiUnits {
-        pub units: HashMap<usize, UnitInfo>,
-    }
-    impl AiUnits {
-        pub fn new() -> AiUnits {
-            AiUnits {
-                units: HashMap::<usize, UnitInfo>::new(),
-            }
-        }
-        pub fn add_test_units(self: &mut AiUnits, id_gen: &mut UnitId) {
-            //add sample AI infantry
-            let mut new_unit = UnitInfo::new(
-                UnitTilesEnum::Scout,
-                id_gen,
-                Entity::AI,
-                GridTile::new(7, 15),
-            );
-            self.units.insert(new_unit.unit_id, new_unit);
-
-            // add AI tank
-            new_unit = UnitInfo::new(
-                UnitTilesEnum::Tank,
-                id_gen,
-                Entity::AI,
-                GridTile::new(6, 16),
-            );
-            self.units.insert(new_unit.unit_id, new_unit);
-
-            // add AI SAM
-            new_unit = UnitInfo::new(UnitTilesEnum::SAM, id_gen, Entity::AI, GridTile::new(5, 17));
-            self.units.insert(new_unit.unit_id, new_unit);
-        }
+    pub fn init_enemy_units(id_gen: &mut UnitId) -> UnitsContainer {
+        let mut container = UnitsContainer::new();
+        container.add_unit(UnitInfo::new(UnitTilesEnum::Scout, id_gen, Entity::Enemy, GridTile::new(7, 15)));
+        container.add_unit(UnitInfo::new(UnitTilesEnum::Tank,  id_gen, Entity::Enemy, GridTile::new(6, 16)));
+        container.add_unit(UnitInfo::new(UnitTilesEnum::SAM,   id_gen, Entity::Enemy, GridTile::new(5, 17)));
+        container
     }
 
     #[derive(Default)]
@@ -492,17 +501,17 @@ pub mod unit {
             }
         }
     }
-    pub struct PlayerUnits {
+    pub struct UnitsContainer {
         pub units_by_tile: HashMap<GridTile, UnitStack>,
     }
 
-    impl PlayerUnits {
-        pub fn new() -> PlayerUnits {
-            PlayerUnits {
+    impl UnitsContainer {
+        pub fn new() -> UnitsContainer {
+            UnitsContainer {
                 units_by_tile: HashMap::<GridTile, UnitStack>::new(),
             }
         }
-
+        //add existing unit to container. 
         pub fn add_unit(&mut self, unit: UnitInfo) {
             let mut unit_stack = self.units_by_tile.entry(unit.location).or_default();
             if unit_stack.units.is_empty() {
@@ -511,7 +520,7 @@ pub mod unit {
             unit_stack.units.insert(unit.unit_id, unit);
         }
 
-        pub fn add_unit_at(
+        pub fn create_add_unit_at(
             &mut self,
             unit_type: UnitTilesEnum,
             id_gen: &mut UnitId,
@@ -550,6 +559,40 @@ pub mod unit {
             self.units_by_tile.get(&tile).map(|stack| &stack.units)
         }
 
+        pub fn unit_ids_at(&self, tile: GridTile) -> Vec<usize> {
+            self.units_by_tile
+                .get(&tile)
+                .map(|s| s.units.keys().copied().collect())
+                .unwrap_or_default()
+        }
+
+        pub fn unit_refs_at(&self, tile: GridTile, ids: &[usize]) -> Vec<&UnitInfo> {
+            ids.iter()
+                .filter_map(|id| self.units_by_tile.get(&tile)?.units.get(id))
+                .collect()
+        }
+
+        pub fn has_units_at_tile(&self, tile: GridTile) -> bool {
+            self.units_by_tile.get(&tile).map_or(false, |s| !s.units.is_empty())
+        }
+
+        /// Applies `dmg_each` to every unit in `unit_ids` at `tile`.
+        /// Returns ids of units whose health dropped to zero.
+        pub fn damage_units_at(&mut self, tile: GridTile, unit_ids: &[usize], dmg_each: f32) -> Vec<usize> {
+            let mut dead = Vec::new();
+            for id in unit_ids {
+                if let Some(unit) = self.units_by_tile
+                    .get_mut(&tile)
+                    .and_then(|s| s.units.get_mut(id))
+                {
+                    if unit.takes_damage(dmg_each) {
+                        dead.push(*id);
+                    }
+                }
+            }
+            dead
+        }
+
         pub fn find_unit_tile(&self, unit_id: usize) -> Option<GridTile> {
             self.units_by_tile
                 .iter()
@@ -571,30 +614,33 @@ pub mod unit {
                 .get_mut(&tile)
                 .and_then(|stack| stack.units.remove(&unit_id))
         }
-    }
 
-    pub struct DestroyedUnit {
-        pub unit_type: UnitTilesEnum,
-        pub location: GridTile,
-        frame_itr: Box<dyn Iterator<Item = usize>>,
-    }
-
-    impl DestroyedUnit {
-        pub fn new(unit_type: UnitTilesEnum, location: GridTile) -> Self {
-            DestroyedUnit {
-                unit_type,
-                location,
-                frame_itr: Box::new(UnitTileTextures::get_oneshot_seq_it(4, 20)),
+        /// Removes each id in `dead_ids` from the container, moves units with a
+        /// destruction animation into `destroyed_units`, and returns
+        /// `(unit_id, location)` pairs so the caller can issue the
+        /// corresponding map removals.
+        pub fn kill_units_at(
+            &mut self,
+            tile: GridTile,
+            dead_ids: &[usize],
+            destroyed_units: &mut Vec<UnitInfo>,
+        ) -> Vec<(usize, GridTile)> {
+            let mut map_removals = Vec::new();
+            for &id in dead_ids {
+                if let Some(mut unit) = self.pop_unit(tile, id) {
+                    map_removals.push((id, unit.location));
+                    if unit_has_destruction_animation(unit.unit_type) {
+                        unit.start_destruction();
+                        destroyed_units.push(unit);
+                    }
+                }
             }
-        }
-
-        pub fn next_frame(&mut self) -> Option<usize> {
-            self.frame_itr.next()
+            map_removals
         }
     }
 
     pub fn unit_has_destruction_animation(unit_type: UnitTilesEnum) -> bool {
-        matches!(unit_type, UnitTilesEnum::Tank)
+        matches!(unit_type, UnitTilesEnum::Tank | UnitTilesEnum::Infantry)
     }
 
     pub struct DamageAssessment {
@@ -776,9 +822,9 @@ pub mod unit {
         #[test]
         fn add_unit_at_inserts_unit_into_tile_map() {
             let mut id_gen = UnitId::new();
-            let mut player_units = PlayerUnits::new();
+            let mut player_units = UnitsContainer::new();
 
-            let unit_id = player_units.add_unit_at(
+            let unit_id = player_units.create_add_unit_at(
                 UnitTilesEnum::Tank,
                 &mut id_gen,
                 Entity::Player,
@@ -795,9 +841,9 @@ pub mod unit {
         #[test]
         fn move_unit_moves_unit_between_tiles() {
             let mut id_gen = UnitId::new();
-            let mut player_units = PlayerUnits::new();
+            let mut player_units = UnitsContainer::new();
 
-            let unit_id = player_units.add_unit_at(
+            let unit_id = player_units.create_add_unit_at(
                 UnitTilesEnum::Tank,
                 &mut id_gen,
                 Entity::Player,
@@ -830,9 +876,9 @@ pub mod unit {
         #[test]
         fn move_unit_fails_if_start_tile_is_wrong() {
             let mut id_gen = UnitId::new();
-            let mut player_units = PlayerUnits::new();
+            let mut player_units = UnitsContainer::new();
 
-            let unit_id = player_units.add_unit_at(
+            let unit_id = player_units.create_add_unit_at(
                 UnitTilesEnum::Tank,
                 &mut id_gen,
                 Entity::Player,

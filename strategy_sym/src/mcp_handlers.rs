@@ -1,8 +1,9 @@
 use crate::defines::*;
-use crate::game::process_unit_movement;
+use crate::game::{process_unit_movement, refresh_contested_tile};
 use crate::map::terrain::TerrainGrid;
 use crate::mcp_server::McpCommand;
-use crate::units::unit::{AiUnits, DestroyedUnit, PlayerUnits, unit_has_destruction_animation};
+use crate::units::unit::{UnitInfo, UnitsContainer, unit_has_destruction_animation};
+use std::collections::HashSet;
 
 // ---------------------------------------------------------------------------
 // Per-command handlers — called by process_mcp_commands each frame
@@ -11,9 +12,11 @@ use crate::units::unit::{AiUnits, DestroyedUnit, PlayerUnits, unit_has_destructi
 pub fn mcp_move_unit(
     unit_id: usize,
     target: GridTile,
-    player_units: &mut PlayerUnits,
+    player_units: &mut UnitsContainer,
+    enemy_units: &UnitsContainer,
     map: &mut TerrainGrid,
-    destroyed_units: &mut Vec<DestroyedUnit>,
+    destroyed_units: &mut Vec<UnitInfo>,
+    contested_tiles: &mut HashSet<GridTile>,
 ) -> String {
     let start_tile = match player_units.find_unit_tile(unit_id) {
         Some(t) => t,
@@ -38,17 +41,22 @@ pub fn mcp_move_unit(
         .and_then(|s| s.units.get_mut(&unit_id))
         .unwrap();
 
-    let unit_type = unit.unit_type;
     match process_unit_movement(target, unit, map) {
         MoveResult::Success => {
             player_units.move_unit(start_tile, unit_id, target);
+            refresh_contested_tile(start_tile, player_units, enemy_units, contested_tiles);
+            refresh_contested_tile(target, player_units, enemy_units, contested_tiles);
             format!("Unit {} moved to ({},{})", unit_id, target.row, target.col)
         }
         MoveResult::UnitDestroyed => {
-            player_units.remove_unit(start_tile, unit_id);
-            if unit_has_destruction_animation(unit_type) {
-                destroyed_units.push(DestroyedUnit::new(unit_type, target));
+            if let Some(mut dead_unit) = player_units.pop_unit(start_tile, unit_id) {
+                if unit_has_destruction_animation(dead_unit.unit_type) {
+                    dead_unit.location = target;
+                    dead_unit.start_destruction();
+                    destroyed_units.push(dead_unit);
+                }
             }
+            refresh_contested_tile(start_tile, player_units, enemy_units, contested_tiles);
             format!(
                 "Unit {} destroyed by mines at ({},{})",
                 unit_id, target.row, target.col
@@ -61,7 +69,7 @@ pub fn mcp_move_unit(
     }
 }
 
-pub fn mcp_list_player_units(player_units: &PlayerUnits) -> String {
+pub fn mcp_list_player_units(player_units: &UnitsContainer) -> String {
     let mut lines = vec!["Player units:".to_string()];
     for (_, stack) in &player_units.units_by_tile {
         for (id, unit) in &stack.units {
@@ -83,11 +91,11 @@ pub fn mcp_list_player_units(player_units: &PlayerUnits) -> String {
     lines.join("\n")
 }
 
-pub fn mcp_list_visible_enemies(map: &TerrainGrid, enemy_units: &AiUnits) -> String {
+pub fn mcp_list_visible_enemies(map: &TerrainGrid, enemy_units: &UnitsContainer) -> String {
     let mut lines = vec!["Visible enemy units:".to_string()];
     for (tile, unit_ids) in &map.visible_units_per_tile {
         for id in unit_ids {
-            if let Some(unit) = enemy_units.units.get(id) {
+            if let Some(unit) = enemy_units.units_by_tile.get(tile).and_then(|s| s.units.get(id)) {
                 lines.push(format!(
                     "  id={} type={} loc=({},{}) hp={:.0}/{:.0}",
                     id, unit.unit_type, tile.row, tile.col, unit.health, unit.max_health
@@ -129,10 +137,11 @@ pub fn mcp_tile_info(tile: GridTile, map: &TerrainGrid) -> String {
 
 pub fn process_mcp_commands(
     cmd_rx: &std::sync::mpsc::Receiver<McpCommand>,
-    player_units: &mut PlayerUnits,
-    enemy_units: &AiUnits,
+    player_units: &mut UnitsContainer,
+    enemy_units: &UnitsContainer,
     map: &mut TerrainGrid,
-    destroyed_units: &mut Vec<DestroyedUnit>,
+    destroyed_units: &mut Vec<UnitInfo>,
+    contested_tiles: &mut HashSet<GridTile>,
 ) {
     while let Ok(cmd) = cmd_rx.try_recv() {
         match cmd {
@@ -141,7 +150,7 @@ pub fn process_mcp_commands(
                 target,
                 resp,
             } => {
-                let _ = resp.send(mcp_move_unit(unit_id, target, player_units, map,destroyed_units));
+                let _ = resp.send(mcp_move_unit(unit_id, target, player_units, enemy_units, map, destroyed_units, contested_tiles));
             }
             McpCommand::ListPlayerUnits { resp } => {
                 let _ = resp.send(mcp_list_player_units(player_units));

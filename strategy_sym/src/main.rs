@@ -1,4 +1,5 @@
 use macroquad::prelude::*;
+use std::collections::HashSet;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 mod defines;
@@ -23,18 +24,16 @@ use crate::menu::MenuType;
 use crate::mouse::MouseTracker;
 use crate::units::unit::*;
 
-
-//TODO: 
+//TODO:
 /*
-1. Get MCP server working - currently not able to connect
-2. Add fighting. Damage system, is implemented but not used yet. Need to add attack actions and unit health.
+1. Get MCP server working - will not work the way it is, since claude mcp clients sends GET commands to server that only accpets POSTs
 3. Add more unit animations
 4. Ranged units attacks
 5. MCP server should also provide infrastructure control, not just units
-6. Remove DamageUnit struct and just use UnitInfo with an optional field for damage taken. This will simplify the code and reduce the number of structs we need to manage.
 7. Expand map size
-8. Add roads and general asset work 
-9. Terrain tile textures boundaries
+8. Add roads and general asset work
+9. Terrain tile textures boundaries - started working on forest to plains transition but it needs more work to look good
+10. resolve_combat still seems a bit over complicated, getting  unit refs should be enough raher than getting refs and ids
 
 Features to add:
 1. Tech tree
@@ -87,10 +86,11 @@ async fn main() {
         map.add_infr(obj.clone());
     }
 
-    let mut enemy_units = AiUnits::new();
-    enemy_units.add_test_units(&mut id_gen);
-    for (unit_id, unit) in &enemy_units.units {
-        map.add_hidden_unit(*unit_id, unit.location, Entity::AI);
+    let mut enemy_units = init_enemy_units(&mut id_gen);
+    for (_, stack) in &enemy_units.units_by_tile {
+        for (unit_id, unit) in &stack.units {
+            map.add_hidden_unit(*unit_id, unit.location, Entity::Enemy);
+        }
     }
 
     menu::initialize_menu(&menu_skin).await;
@@ -107,7 +107,9 @@ async fn main() {
 
     let mut mouse = MouseTracker::new();
     let mut menu_content: MenuType = MenuType::Main;
-    let mut destroyed_units: Vec<DestroyedUnit> = Vec::new();
+    let mut destroyed_units: Vec<UnitInfo> = Vec::new();
+    let mut contested_tiles: HashSet<GridTile> = HashSet::new();
+    let mut last_combat_time = get_time();
 
     loop {
         match state {
@@ -132,17 +134,30 @@ async fn main() {
                     &enemy_units,
                     &mut map,
                     &mut destroyed_units,
+                    &mut contested_tiles,
                 );
 
-                let draw_unit_exception = handle_unit_interaction(
+                let draw_unit_exception = mouse_unit_drag_handler(
                     &mouse,
                     &mut player_units_map,
                     &mut textures,
                     &mut map,
                     &enemy_units,
                     &mut destroyed_units,
+                    &mut contested_tiles,
                 )
                 .await;
+
+                if get_time() - last_combat_time >= 2.0 {
+                    resolve_combat(
+                        &mut player_units_map,
+                        &mut enemy_units,
+                        &mut map,
+                        &mut destroyed_units,
+                        &mut contested_tiles,
+                    );
+                    last_combat_time = get_time();
+                }
 
                 draw_infrastructure(&mut textures, &infr_container).await;
 
@@ -152,7 +167,13 @@ async fn main() {
                 }
 
                 draw_player_units(&mut textures, &mut player_units_map, draw_unit_exception).await;
-                draw_visible_enemy_units(&mut map, &mut enemy_units, &mut textures, &player_units_map).await;
+                draw_visible_enemy_units(
+                    &mut map,
+                    &mut enemy_units,
+                    &mut textures,
+                    &player_units_map,
+                )
+                .await;
                 draw_destroyed_units(&mut destroyed_units, &mut textures).await;
 
                 menu::show_popup_menu(&mut mouse, &mut menu_content, &mut map, &player_units_map);

@@ -246,7 +246,7 @@ pub mod infstrt {
             self.infr_objects.push(Arc::new(Mutex::new(InfrObject::new(
                 InfrastructureEnum::Factory,
                 GridTile::new(5, 18),
-                Entity::AI,
+                Entity::Enemy,
             ))));
             self.infr_objects.push(Arc::new(Mutex::new(InfrObject::new(
                 InfrastructureEnum::Factory,
@@ -285,7 +285,7 @@ pub mod infstrt {
             self.infr_objects.push(Arc::new(Mutex::new(InfrObject::new(
                 InfrastructureEnum::Mines,
                 GridTile::new(5, 19),
-                Entity::AI,
+                Entity::Enemy,
             ))));
         }
         pub fn iterate_infrastructure(

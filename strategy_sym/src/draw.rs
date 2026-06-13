@@ -67,7 +67,7 @@ pub async fn draw_infrastructure(
 }
 
 pub async fn draw_player_unit(unit: &mut UnitInfo, textures: &mut Textures, position: GridTile) {
-    let flip = matches!(unit.player_id, Entity::AI);
+    let flip = matches!(unit.player_id, Entity::Enemy);
     let texture = textures.units.get_texture(
         unit.unit_type,
         health_to_texture_type(unit.health / unit.max_health),
@@ -79,7 +79,7 @@ pub async fn draw_player_unit(unit: &mut UnitInfo, textures: &mut Textures, posi
 
 pub async fn draw_player_units(
     textures: &mut Textures,
-    player_units_map: &mut PlayerUnits,
+    player_units_map: &mut UnitsContainer,
     exclude_tile: Option<GridTile>,
 ) {
     for (tile, unit_stack) in &mut player_units_map.units_by_tile {
@@ -93,7 +93,7 @@ pub async fn draw_player_units(
     }
 }
 
-pub async fn draw_destroyed_units(destroyed_units: &mut Vec<DestroyedUnit>, textures: &mut Textures) {
+pub async fn draw_destroyed_units(destroyed_units: &mut Vec<UnitInfo>, textures: &mut Textures) {
     let mut i = 0;
     while i < destroyed_units.len() {
         let frame = destroyed_units[i].next_frame();
@@ -114,14 +114,14 @@ pub async fn draw_destroyed_units(destroyed_units: &mut Vec<DestroyedUnit>, text
 
 pub async fn draw_visible_enemy_units(
     map: &mut TerrainGrid,
-    enemy_units: &mut AiUnits,
+    enemy_units: &mut UnitsContainer,
     textures: &mut Textures,
-    player_units: &PlayerUnits,
+    player_units: &UnitsContainer,
 ) {
-    for (_, unit_ids) in &map.visible_units_per_tile {
+    for (tile, unit_ids) in &map.visible_units_per_tile {
         for unit_id in unit_ids {
-            if let Some(unit) = enemy_units.units.get_mut(unit_id) {
-                let flip = matches!(unit.player_id, Entity::AI);
+            if let Some(unit) = enemy_units.units_by_tile.get_mut(tile).and_then(|s| s.units.get_mut(unit_id)) {
+                let flip = matches!(unit.player_id, Entity::Enemy);
                 let loc = unit.location;
                 let health_bar = unit.get_health_bar();
                 let players_present = player_units
@@ -134,7 +134,7 @@ pub async fn draw_visible_enemy_units(
                     &mut unit.frame_itr,
                 );
                 paint_tile(loc, TILE_SIZE, texture, flip).await;
-                draw_health_bar(TILE_SIZE, loc, health_bar, Entity::AI, players_present).await;
+                draw_health_bar(TILE_SIZE, loc, health_bar, Entity::Enemy, players_present).await;
             }
         }
     }
@@ -215,13 +215,13 @@ pub async fn draw_health_bar(
 ) {
     let col = match ent {
         Entity::Player => BLUE,
-        Entity::AI => RED,
+        Entity::Enemy => RED,
     };
     let bar_thickness = 2.0;
     let offset = match ent {
         Entity::Player => 1.0,
-        Entity::AI if both_players_present => 1.0 + bar_thickness,
-        Entity::AI => 1.0,
+        Entity::Enemy if both_players_present => 1.0 + bar_thickness,
+        Entity::Enemy => 1.0,
     };
     draw_line(
         tile_size.0 * (tile.col as f32),

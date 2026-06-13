@@ -29,7 +29,7 @@ impl MouseTracker {
         }
     }
 
-    pub fn process_mouse_action(self: &mut MouseTracker, units: &PlayerUnits) {
+    pub fn process_mouse_action(self: &mut MouseTracker, units: &UnitsContainer) {
         let (mouse_x, mouse_y) = mouse_position();
         let mouse_tile = self.get_cursor_pointed_tile();
 

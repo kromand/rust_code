@@ -226,6 +226,14 @@ pub mod terrain {
                 tile_info.hidden_units[ent as usize].remove(&unit_id);
                 tile_info.visible_units[ent as usize].remove(&unit_id);
             }
+            if matches!(ent, Entity::Enemy) {
+                self.remove_visible_unit(unit_id, tile);
+            }
+        }
+        pub fn remove_visible_unit(&mut self, unit_id: usize, tile: GridTile) {
+            if let Some(set) = self.visible_units_per_tile.get_mut(&tile) {
+                set.remove(&unit_id);
+            }
         }
         pub fn make_visible(self: &mut TerrainGrid, unit_id: usize, tile: GridTile, ent: Entity) {
             if let Some(t) = self.get_tile_for_coord(tile) {
@@ -283,7 +291,6 @@ pub mod terrain {
                     .collect::<Vec<usize>>();
 
                 for unit_id in &detected_units {
-                    dbg!(&unit_id);
                     tile_data.hidden_units[player_type as usize].remove(unit_id);
                     tile_data.visible_units[player_type as usize].insert(*unit_id);
                 }

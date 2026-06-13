@@ -28,14 +28,14 @@ pub enum TerrainTilesEnum {
 #[derive(Clone, Copy)]
 pub enum Entity {
     Player,
-    AI,
+    Enemy,
 }
 
 impl Entity {
     pub fn get_opposite(p: Entity) -> Entity {
         match p {
-            Entity::AI => Entity::Player,
-            Entity::Player => Entity::AI,
+            Entity::Enemy => Entity::Player,
+            Entity::Player => Entity::Enemy,
         }
     }
 }

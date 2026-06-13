@@ -4,7 +4,7 @@ use macroquad::ui::{Skin, Ui, hash, root_ui, widgets};
 use crate::MouseTracker;
 use crate::defines::{GridTile, InfrastructureEnum, TILE_SIZE};
 use crate::map::terrain::TerrainGrid;
-use crate::units::unit::PlayerUnits;
+use crate::units::unit::UnitsContainer;
 
 #[derive(PartialEq, Eq)]
 pub enum GameState {
@@ -136,7 +136,7 @@ fn render_popup_menu_content(
     grid_tile: GridTile,
     has_factory: bool,
     has_airfield: bool,
-    player_units: &PlayerUnits,
+    player_units: &UnitsContainer,
 ) {
     match selection {
         MenuType::Main => render_popup_main_menu(ui, selection, mouse, has_factory, has_airfield),
@@ -239,7 +239,7 @@ fn render_popup_unit_menu(
     ui: &mut Ui,
     selection: &mut MenuType,
     mouse: &mut MouseTracker,
-    player_units: &PlayerUnits,
+    player_units: &UnitsContainer,
     grid_tile: GridTile,
 ) {
     if let Some(unit_stack) = player_units.units_by_tile.get(&grid_tile) {
@@ -291,7 +291,7 @@ pub fn show_popup_menu(
     mouse: &mut MouseTracker,
     selection: &mut MenuType,
     terrain_grid: &mut TerrainGrid,
-    player_units: &PlayerUnits,
+    player_units: &UnitsContainer,
 ) {
     if mouse.is_popup_visible() {
         let location = vec2(mouse.popup_position().0, mouse.popup_position().1);

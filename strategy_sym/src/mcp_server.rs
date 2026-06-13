@@ -1,15 +1,9 @@
 use anyhow::Result;
-use axum::{extract::Request, middleware::{self, Next}, response::Response};
 use crate::defines::GridTile;
-use rmcp::{handler::server::wrapper::Parameters, schemars, tool, tool_router};
-use rmcp::transport::streamable_http_server::{
-    StreamableHttpServerConfig, StreamableHttpService, session::local::LocalSessionManager,
-};
+use rmcp::{ServiceExt, handler::server::wrapper::Parameters, schemars, tool, tool_router};
+use rmcp::transport::stdio;
 use std::sync::mpsc;
 use tokio::sync::oneshot;
-use tokio_util::sync::CancellationToken;
-
-const MCP_BIND_ADDRESS: &str = "127.0.0.1:8000";
 
 // ---------------------------------------------------------------------------
 // Commands sent from MCP tool handlers to the game loop.
@@ -131,25 +125,6 @@ impl StratCommands {
 }
 
 // ---------------------------------------------------------------------------
-// Middleware: strip stale reconnect headers so rmcp treats the request as a
-// fresh connection.  Two cases both produce a 400 from rmcp:
-//   (a) GET /mcp with Last-Event-ID and no mcp-session-id
-//   (b) GET /mcp with Last-Event-ID and a stale mcp-session-id (server restarted)
-// In both cases we strip both headers; without them rmcp opens an unbound SSE
-// listening channel and the client re-negotiates normally.
-// ---------------------------------------------------------------------------
-
-async fn strip_stale_reconnect_headers(mut req: Request, next: Next) -> Response {
-    if req.method() == axum::http::Method::GET
-        && req.headers().contains_key("last-event-id")
-    {
-        req.headers_mut().remove("last-event-id");
-        req.headers_mut().remove("mcp-session-id");
-    }
-    next.run(req).await
-}
-
-// ---------------------------------------------------------------------------
 // Server startup
 // ---------------------------------------------------------------------------
 
@@ -160,25 +135,9 @@ pub fn start_mcp_server(cmd_tx: mpsc::Sender<McpCommand>) -> std::thread::JoinHa
             .build()?;
 
         rt.block_on(async {
-            let ct = CancellationToken::new();
-
-            let service = StreamableHttpService::new(
-                move || Ok(StratCommands::new(cmd_tx.clone())),
-                LocalSessionManager::default().into(),
-                StreamableHttpServerConfig::default().with_cancellation_token(ct.child_token()),
-            );
-
-            let router = axum::Router::new()
-                .nest_service("/mcp", service)
-                .layer(middleware::from_fn(strip_stale_reconnect_headers));
-            let tcp_listener = tokio::net::TcpListener::bind(MCP_BIND_ADDRESS).await?;
-            tracing::info!("Strategy sym MCP server listening on http://{}/mcp", MCP_BIND_ADDRESS);
-            axum::serve(tcp_listener, router)
-                .with_graceful_shutdown(async move {
-                    tokio::signal::ctrl_c().await.unwrap();
-                    ct.cancel();
-                })
-                .await?;
+            tracing::info!("Strategy sym MCP server starting on stdio");
+            let service = StratCommands::new(cmd_tx).serve(stdio()).await?;
+            service.waiting().await?;
             Ok(())
         })
     })
