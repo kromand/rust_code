@@ -1,5 +1,6 @@
 use crate::defines::*;
 use crate::game::{process_unit_movement, refresh_contested_tile};
+use crate::game_assets::GameAssets;
 use crate::map::terrain::TerrainGrid;
 use crate::mcp_server::McpCommand;
 use crate::units::unit::{UnitInfo, UnitsContainer, unit_has_destruction_animation};
@@ -137,12 +138,16 @@ pub fn mcp_tile_info(tile: GridTile, map: &TerrainGrid) -> String {
 
 pub fn process_mcp_commands(
     cmd_rx: &std::sync::mpsc::Receiver<McpCommand>,
-    player_units: &mut UnitsContainer,
-    enemy_units: &UnitsContainer,
-    map: &mut TerrainGrid,
-    destroyed_units: &mut Vec<UnitInfo>,
-    contested_tiles: &mut HashSet<GridTile>,
+    game_assets: &mut GameAssets,
 ) {
+    let GameAssets {
+        player_units_map: player_units,
+        enemy_units_map: enemy_units,
+        map,
+        destroyed_units,
+        contested_tiles,
+        ..
+    } = game_assets;
     while let Ok(cmd) = cmd_rx.try_recv() {
         match cmd {
             McpCommand::MoveUnit {

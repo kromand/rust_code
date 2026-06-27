@@ -1,8 +1,10 @@
 pub mod unit {
     use crate::defines::*;
+    use crate::infrastructure::infstrt::InfrastructureContainer;
+    use crate::map::terrain::TerrainGrid;
     use macroquad::prelude::*;
     use std::{
-        collections::HashMap,
+        collections::{HashMap, HashSet},
         sync::atomic::{AtomicUsize, Ordering},
     };
 
@@ -36,6 +38,7 @@ pub mod unit {
     const DEFAULT_INFANTRY_DEST_3_TEXTURE_FILE: &str = "assets/infantry_dest_3.png";
     const DEFAULT_INFANTRY_DEST_4_TEXTURE_FILE: &str = "assets/infantry_dest_4.png";
     const DEFAULT_SCOUT_TEXTURE_FILE: &str = "assets/scouts.png";
+    const DEFAULT_ENGINEERS_TEXTURE_FILE: &str = "assets/eng.png";
 
     #[derive(Debug)]
     pub enum TextureType {
@@ -71,6 +74,7 @@ pub mod unit {
                 sam_txtr: vec![load_texture(DEFAULT_SAM_TEXTURE_FILE).await?],
                 infantry_txtr: vec![load_texture(DEFAULT_INFANTRY_TEXTURE_FILE).await?],
                 scout_txtr: vec![load_texture(DEFAULT_SCOUT_TEXTURE_FILE).await?],
+                engineers_txtr: vec![load_texture(DEFAULT_ENGINEERS_TEXTURE_FILE).await?],
             })
         }
         pub async fn load_damage_textures() -> Result<UnitTileTextures, macroquad::Error> {
@@ -100,6 +104,7 @@ pub mod unit {
                     load_texture(DEFAULT_INFANTRY_DMG_4_TEXTURE_FILE).await?,
                 ],
                 scout_txtr: vec![load_texture(DEFAULT_SCOUT_TEXTURE_FILE).await?],
+                engineers_txtr: vec![load_texture(DEFAULT_ENGINEERS_TEXTURE_FILE).await?],
             })
         }
         pub async fn load_movement_textures() -> Result<UnitTileTextures, macroquad::Error> {
@@ -114,6 +119,7 @@ pub mod unit {
                 sam_txtr: vec![load_texture(DEFAULT_SAM_TEXTURE_FILE).await?],
                 infantry_txtr: vec![load_texture(DEFAULT_INFANTRY_TEXTURE_FILE).await?],
                 scout_txtr: vec![load_texture(DEFAULT_SCOUT_TEXTURE_FILE).await?],
+                engineers_txtr: vec![load_texture(DEFAULT_ENGINEERS_TEXTURE_FILE).await?],
             })
         }
         pub async fn load_destruction_textures() -> Result<UnitTileTextures, macroquad::Error> {
@@ -138,6 +144,7 @@ pub mod unit {
                     load_texture(DEFAULT_INFANTRY_DEST_4_TEXTURE_FILE).await?,
                 ],
                 scout_txtr: vec![load_texture(DEFAULT_SCOUT_TEXTURE_FILE).await?],
+                engineers_txtr: vec![load_texture(DEFAULT_ENGINEERS_TEXTURE_FILE).await?],
             })
         }
         pub async fn new() -> Result<Box<AnimateUnit>, macroquad::Error> {
@@ -186,6 +193,7 @@ pub mod unit {
         sam_txtr: Vec<Texture2D>,
         infantry_txtr: Vec<Texture2D>,
         scout_txtr: Vec<Texture2D>,
+        engineers_txtr: Vec<Texture2D>,
     }
     impl UnitTileTextures {
         pub fn get_repeat_seq_it(len: usize, repeat: usize) -> impl Iterator<Item = usize> {
@@ -203,6 +211,9 @@ pub mod unit {
                 UnitTilesEnum::Tank => &self.tank_txtr[frame % self.tank_txtr.len()],
                 UnitTilesEnum::Infantry => &self.infantry_txtr[frame % self.infantry_txtr.len()],
                 UnitTilesEnum::Scout => &self.scout_txtr[frame % self.scout_txtr.len()],
+                UnitTilesEnum::Engineers => {
+                    &self.engineers_txtr[frame % self.engineers_txtr.len()]
+                }
                 UnitTilesEnum::RocketArty => {
                     &self.rocket_arty_txtr[frame % self.rocket_arty_txtr.len()]
                 }
@@ -263,6 +274,8 @@ pub mod unit {
         pub visibility_range: usize,
         pub prob_to_detect_units: usize,
         pub frame_itr: Box<dyn Iterator<Item = usize>>,
+        /// Special actions this unit can perform; `None` for units with none.
+        pub actions: Option<HashSet<UnitAction>>,
     }
     impl Default for UnitInfo {
         fn default() -> Self {
@@ -279,9 +292,26 @@ pub mod unit {
                 visibility_range: 1,
                 prob_to_detect_units: 50,
                 frame_itr: Box::new(std::iter::repeat(0usize)),
+                actions: None,
             }
         }
     }
+    /// Special actions granted to each unit type. Engineers can build; the
+    /// artillery types can attack at range; everyone else has none.
+    fn actions_for(tp: UnitTilesEnum) -> Option<HashSet<UnitAction>> {
+        match tp {
+            UnitTilesEnum::Engineers => Some(HashSet::from([
+                UnitAction::AddMines,
+                UnitAction::BuildBunker,
+                UnitAction::BuildBridge,
+            ])),
+            UnitTilesEnum::Artillery | UnitTilesEnum::RocketArty => {
+                Some(HashSet::from([UnitAction::RangedAttack]))
+            }
+            _ => None,
+        }
+    }
+
     impl UnitInfo {
         pub fn new(
             tp: UnitTilesEnum,
@@ -294,6 +324,7 @@ pub mod unit {
             };
             match tp {
                 UnitTilesEnum::Tank => UnitInfo {
+                    actions: actions_for(tp),
                     unit_id: id_gen.get_new(),
                     player_id: p_id,
                     unit_name: id_gen.get_next_name(tp),
@@ -308,6 +339,7 @@ pub mod unit {
                     frame_itr: Box::new(UnitTileTextures::get_repeat_seq_it(4, 20)),
                 },
                 UnitTilesEnum::APC => UnitInfo {
+                    actions: actions_for(tp),
                     unit_id: id_gen.get_new(),
                     player_id: p_id,
                     unit_name: id_gen.get_next_name(tp),
@@ -322,6 +354,7 @@ pub mod unit {
                     frame_itr: Box::new(UnitTileTextures::get_repeat_seq_it(4, 20)),
                 },
                 UnitTilesEnum::Artillery => UnitInfo {
+                    actions: actions_for(tp),
                     unit_id: id_gen.get_new(),
                     player_id: p_id,
                     unit_name: id_gen.get_next_name(tp),
@@ -336,6 +369,7 @@ pub mod unit {
                     frame_itr: frame_itr_1(),
                 },
                 UnitTilesEnum::RocketArty => UnitInfo {
+                    actions: actions_for(tp),
                     unit_id: id_gen.get_new(),
                     player_id: p_id,
                     unit_name: id_gen.get_next_name(tp),
@@ -350,6 +384,7 @@ pub mod unit {
                     frame_itr: frame_itr_1(),
                 },
                 UnitTilesEnum::Engineers => UnitInfo {
+                    actions: actions_for(tp),
                     unit_id: id_gen.get_new(),
                     player_id: p_id,
                     unit_name: id_gen.get_next_name(tp),
@@ -364,6 +399,7 @@ pub mod unit {
                     frame_itr: frame_itr_1(),
                 },
                 UnitTilesEnum::AttackHeli => UnitInfo {
+                    actions: actions_for(tp),
                     unit_id: id_gen.get_new(),
                     player_id: p_id,
                     unit_name: id_gen.get_next_name(tp),
@@ -378,6 +414,7 @@ pub mod unit {
                     frame_itr: frame_itr_1(),
                 },
                 UnitTilesEnum::TransportHeli => UnitInfo {
+                    actions: actions_for(tp),
                     unit_id: id_gen.get_new(),
                     player_id: p_id,
                     unit_name: id_gen.get_next_name(tp),
@@ -392,6 +429,7 @@ pub mod unit {
                     frame_itr: frame_itr_1(),
                 },
                 UnitTilesEnum::Plane => UnitInfo {
+                    actions: actions_for(tp),
                     unit_id: id_gen.get_new(),
                     player_id: p_id,
                     unit_name: id_gen.get_next_name(tp),
@@ -406,6 +444,7 @@ pub mod unit {
                     frame_itr: frame_itr_1(),
                 },
                 UnitTilesEnum::SAM => UnitInfo {
+                    actions: actions_for(tp),
                     unit_id: id_gen.get_new(),
                     player_id: p_id,
                     unit_name: id_gen.get_next_name(tp),
@@ -420,6 +459,7 @@ pub mod unit {
                     frame_itr: frame_itr_1(),
                 },
                 UnitTilesEnum::Infantry => UnitInfo {
+                    actions: actions_for(tp),
                     unit_id: id_gen.get_new(),
                     player_id: p_id,
                     unit_name: id_gen.get_next_name(tp),
@@ -434,6 +474,7 @@ pub mod unit {
                     frame_itr: Box::new(UnitTileTextures::get_repeat_seq_it(4, 20)),
                 },
                 UnitTilesEnum::Scout => UnitInfo {
+                    actions: actions_for(tp),
                     unit_id: id_gen.get_new(),
                     player_id: p_id,
                     unit_name: id_gen.get_next_name(tp),
@@ -471,6 +512,78 @@ pub mod unit {
         }
         pub fn next_frame(self: &mut UnitInfo) -> Option<usize> {
             self.frame_itr.next()
+        }
+        /// True if this unit is allowed to perform `action`.
+        pub fn can_perform(self: &UnitInfo, action: UnitAction) -> bool {
+            self.actions
+                .as_ref()
+                .is_some_and(|set| set.contains(&action))
+        }
+        /// Central dispatch for special unit actions. Returns `false` if the unit
+        /// isn't allowed the action; otherwise routes to the matching handler.
+        ///
+        /// AddMines/BuildBunker are wired: they register the new infrastructure
+        /// at `target` in both the container and the map tile grid.
+        /// BuildBridge and RangedAttack are still stubs — BuildBridge needs a
+        /// `Bridge` variant on `InfrastructureEnum`, and RangedAttack needs access
+        /// to the enemy `UnitsContainer` plus the damage system.
+        pub fn perform_action(
+            self: &UnitInfo,
+            action: UnitAction,
+            map: &mut TerrainGrid,
+            infr: &mut InfrastructureContainer,
+            target: GridTile,
+        ) -> bool {
+            if !self.can_perform(action) {
+                return false;
+            }
+            match action {
+                UnitAction::AddMines => {
+                    infr.build_infrastructure(
+                        map,
+                        InfrastructureEnum::Mines,
+                        target,
+                        self.player_id,
+                    );
+                    tracing::info!(
+                        "Unit {} lays mines at ({},{})",
+                        self.unit_id,
+                        target.row,
+                        target.col
+                    );
+                }
+                UnitAction::BuildBunker => {
+                    infr.build_infrastructure(
+                        map,
+                        InfrastructureEnum::Bunker,
+                        target,
+                        self.player_id,
+                    );
+                    tracing::info!(
+                        "Unit {} builds a bunker at ({},{})",
+                        self.unit_id,
+                        target.row,
+                        target.col
+                    );
+                }
+                UnitAction::BuildBridge => {
+                    tracing::info!(
+                        "Unit {} builds a bridge at ({},{}) [stub]",
+                        self.unit_id,
+                        target.row,
+                        target.col
+                    );
+                }
+                UnitAction::RangedAttack => {
+                    tracing::info!(
+                        "Unit {} fires on ({},{}) [stub]",
+                        self.unit_id,
+                        target.row,
+                        target.col
+                    );
+                }
+            }
+            true
         }
         pub fn assess_damage(self: &mut UnitInfo, prob: usize) -> bool {
             if prob <= 85 {

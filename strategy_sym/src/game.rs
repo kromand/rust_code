@@ -1,7 +1,7 @@
 use crate::defines::*;
-use crate::draw::{Textures, paint_tile_at_pixel};
+use crate::draw::paint_tile_at_pixel;
+use crate::game_assets::GameAssets;
 use crate::map::terrain::TerrainGrid;
-use crate::mouse::MouseTracker;
 use crate::random;
 use crate::units::unit::*;
 use std::collections::HashSet;
@@ -37,9 +37,11 @@ pub fn process_unit_movement(
 }
 
 /// Registers a new unit in both the player unit map and the terrain grid.
-pub fn add_unit(player_units_map: &mut UnitsContainer, map: &mut TerrainGrid, unit: UnitInfo) {
-    map.add_hidden_unit(unit.unit_id, unit.location, Entity::Player);
-    player_units_map.add_unit(unit);
+pub fn add_unit(game_assets: &mut GameAssets, unit: UnitInfo) {
+    game_assets
+        .map
+        .add_hidden_unit(unit.unit_id, unit.location, Entity::Player);
+    game_assets.player_units_map.add_unit(unit);
 }
 
 pub fn init_player_units(_id_gen: &mut UnitId) -> UnitsContainer {
@@ -84,13 +86,15 @@ fn apply_damage(
 /// Resolve simultaneous combat on every tile in `contested_tiles`.
 /// Damage is split evenly among units on each side; dead units are removed and
 /// queued for their destruction animation when one exists.
-pub fn resolve_combat(
-    player_units: &mut UnitsContainer,
-    enemy_units: &mut UnitsContainer,
-    map: &mut TerrainGrid,
-    destroyed_units: &mut Vec<UnitInfo>,
-    contested_tiles: &mut HashSet<GridTile>,
-) {
+pub fn resolve_combat(game_assets: &mut GameAssets) {
+    let GameAssets {
+        player_units_map: player_units,
+        enemy_units_map: enemy_units,
+        map,
+        destroyed_units,
+        contested_tiles,
+        ..
+    } = game_assets;
     let da = DamageAssessment::new();
     let tiles: Vec<GridTile> = contested_tiles.iter().copied().collect();
 
@@ -125,15 +129,17 @@ pub fn resolve_combat(
 /// While dragging, renders the unit under the cursor and returns the source tile
 /// so the caller can skip drawing it at its original position.
 /// On drop, validates and applies the move.
-pub async fn mouse_unit_drag_handler(
-    mouse: &MouseTracker,
-    player_units_map: &mut UnitsContainer,
-    textures: &mut Textures,
-    map: &mut TerrainGrid,
-    enemy_units: &UnitsContainer,
-    destroyed_units: &mut Vec<UnitInfo>,
-    contested_tiles: &mut HashSet<GridTile>,
-) -> Option<GridTile> {
+pub async fn mouse_unit_drag_handler(game_assets: &mut GameAssets) -> Option<GridTile> {
+    let GameAssets {
+        mouse,
+        player_units_map,
+        textures,
+        map,
+        enemy_units_map: enemy_units,
+        destroyed_units,
+        contested_tiles,
+        ..
+    } = game_assets;
     if mouse.is_dragging() {
         let pixel = mouse.get_click_drag_draw_offset();
         let drag_source = mouse.get_start_cursor_tile();

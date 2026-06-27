@@ -1,9 +1,11 @@
 use macroquad::prelude::*;
 use macroquad::ui::{Skin, Ui, hash, root_ui, widgets};
 
-use crate::MouseTracker;
 use crate::defines::{GridTile, InfrastructureEnum, TILE_SIZE};
+use crate::game_assets::GameAssets;
+use crate::infrastructure::infstrt::InfrastructureContainer;
 use crate::map::terrain::TerrainGrid;
+use crate::mouse::MouseTracker;
 use crate::units::unit::UnitsContainer;
 
 #[derive(PartialEq, Eq)]
@@ -96,6 +98,7 @@ fn popup_item_count(
     grid_tile: GridTile,
     has_factory: bool,
     has_airfield: bool,
+    player_units: &UnitsContainer,
 ) -> usize {
     match selection {
         MenuType::Main => {
@@ -124,7 +127,21 @@ fn popup_item_count(
                 1
             }
         }
-        MenuType::Unit => 3,
+        MenuType::Unit => match player_units.units_by_tile.get(&grid_tile) {
+            Some(unit_stack) => {
+                // one row per unit + one row per action + the Cancel button
+                let mut count = 1;
+                for unit in unit_stack.units.values() {
+                    count += 1;
+                    if let Some(actions) = &unit.actions {
+                        count += actions.len();
+                    }
+                }
+                count
+            }
+            // the lone "No units" button
+            None => 1,
+        },
     }
 }
 
@@ -137,6 +154,7 @@ fn render_popup_menu_content(
     has_factory: bool,
     has_airfield: bool,
     player_units: &UnitsContainer,
+    infr_container: &mut InfrastructureContainer,
 ) {
     match selection {
         MenuType::Main => render_popup_main_menu(ui, selection, mouse, has_factory, has_airfield),
@@ -146,7 +164,15 @@ fn render_popup_menu_content(
         MenuType::Airfield => {
             render_popup_airfield_menu(ui, selection, mouse, terrain_grid, grid_tile)
         }
-        MenuType::Unit => render_popup_unit_menu(ui, selection, mouse, player_units, grid_tile),
+        MenuType::Unit => render_popup_unit_menu(
+            ui,
+            selection,
+            mouse,
+            player_units,
+            terrain_grid,
+            infr_container,
+            grid_tile,
+        ),
     }
 }
 
@@ -240,6 +266,8 @@ fn render_popup_unit_menu(
     selection: &mut MenuType,
     mouse: &mut MouseTracker,
     player_units: &UnitsContainer,
+    terrain_grid: &mut TerrainGrid,
+    infr_container: &mut InfrastructureContainer,
     grid_tile: GridTile,
 ) {
     if let Some(unit_stack) = player_units.units_by_tile.get(&grid_tile) {
@@ -251,6 +279,19 @@ fn render_popup_unit_menu(
                 *selection = MenuType::Main;
             }
             y_offset += 20.0;
+            // List this unit's available special actions as indented buttons.
+            if let Some(actions) = &unit.actions {
+                let mut sorted_actions: Vec<_> = actions.iter().copied().collect();
+                sorted_actions.sort();
+                for action in sorted_actions {
+                    if ui.button(vec2(20.0, y_offset), action.to_string()) {
+                        unit.perform_action(action, terrain_grid, infr_container, grid_tile);
+                        mouse.set_popup_visible(false);
+                        *selection = MenuType::Main;
+                    }
+                    y_offset += 20.0;
+                }
+            }
         }
         if ui.button(vec2(10.0, y_offset), "Cancel") {
             mouse.set_popup_visible(false);
@@ -287,12 +328,14 @@ pub async fn show_menu(game_state: &mut GameState) {
     );
 }
 
-pub fn show_popup_menu(
-    mouse: &mut MouseTracker,
-    selection: &mut MenuType,
-    terrain_grid: &mut TerrainGrid,
-    player_units: &UnitsContainer,
-) {
+pub fn show_popup_menu(game_assets: &mut GameAssets, selection: &mut MenuType) {
+    let GameAssets {
+        mouse,
+        map: terrain_grid,
+        player_units_map: player_units,
+        infr_container,
+        ..
+    } = game_assets;
     if mouse.is_popup_visible() {
         let location = vec2(mouse.popup_position().0, mouse.popup_position().1);
         if mouse.popup_id().is_none() {
@@ -316,6 +359,7 @@ pub fn show_popup_menu(
             grid_tile,
             has_factory,
             has_airfield,
+            player_units,
         );
         let window_size = vec2(100.0, 40.0 + item_count as f32 * 20.0 + 10.0);
 
@@ -334,6 +378,7 @@ pub fn show_popup_menu(
                 has_factory,
                 has_airfield,
                 player_units,
+                infr_container,
             );
         });
     }

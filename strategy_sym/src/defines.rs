@@ -67,6 +67,16 @@ pub enum UnitTilesEnum {
     End,
 }
 
+/// Special actions a unit may perform beyond moving and fighting.
+/// Which actions a unit has is declared per unit type in `UnitInfo::new`.
+#[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Display)]
+pub enum UnitAction {
+    AddMines,
+    BuildBunker,
+    BuildBridge,
+    RangedAttack,
+}
+
 #[derive(Clone, Copy, Debug)]
 pub enum MoveResult {
     Success,

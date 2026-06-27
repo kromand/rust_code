@@ -2,8 +2,31 @@ use anyhow::Result;
 use crate::defines::GridTile;
 use rmcp::{ServiceExt, handler::server::wrapper::Parameters, schemars, tool, tool_router};
 use rmcp::transport::stdio;
+use rmcp::transport::streamable_http_server::{
+    StreamableHttpServerConfig, StreamableHttpService, session::local::LocalSessionManager,
+};
 use std::sync::mpsc;
 use tokio::sync::oneshot;
+use tokio_util::sync::CancellationToken;
+
+const MCP_BIND_ADDRESS: &str = "127.0.0.1:8000";
+
+/// Selects how the embedded MCP server talks to its client.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum McpTransport {
+    Stdio,
+    StreamableHttp,
+}
+
+impl McpTransport {
+    /// Reads `MCP_TRANSPORT` ("stdio" | "http"); defaults to streamable HTTP.
+    pub fn from_env() -> Self {
+        match std::env::var("MCP_TRANSPORT").as_deref() {
+            Ok("stdio") => McpTransport::Stdio,
+            _ => McpTransport::StreamableHttp,
+        }
+    }
+}
 
 // ---------------------------------------------------------------------------
 // Commands sent from MCP tool handlers to the game loop.
@@ -128,17 +151,54 @@ impl StratCommands {
 // Server startup
 // ---------------------------------------------------------------------------
 
-pub fn start_mcp_server(cmd_tx: mpsc::Sender<McpCommand>) -> std::thread::JoinHandle<Result<()>> {
+pub fn start_mcp_server(
+    cmd_tx: mpsc::Sender<McpCommand>,
+    transport: McpTransport,
+) -> std::thread::JoinHandle<Result<()>> {
     std::thread::spawn(move || {
         let rt = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()?;
 
         rt.block_on(async {
-            tracing::info!("Strategy sym MCP server starting on stdio");
-            let service = StratCommands::new(cmd_tx).serve(stdio()).await?;
-            service.waiting().await?;
-            Ok(())
+            match transport {
+                McpTransport::Stdio => serve_stdio(cmd_tx).await,
+                McpTransport::StreamableHttp => serve_http(cmd_tx).await,
+            }
         })
     })
+}
+
+async fn serve_stdio(cmd_tx: mpsc::Sender<McpCommand>) -> Result<()> {
+    tracing::info!("Strategy sym MCP server starting on stdio");
+    let service = StratCommands::new(cmd_tx).serve(stdio()).await?;
+    service.waiting().await?;
+    Ok(())
+}
+
+async fn serve_http(cmd_tx: mpsc::Sender<McpCommand>) -> Result<()> {
+    let ct = CancellationToken::new();
+
+    let service = StreamableHttpService::new(
+        move || Ok(StratCommands::new(cmd_tx.clone())),
+        LocalSessionManager::default().into(),
+        StreamableHttpServerConfig::default()
+            .with_cancellation_token(ct.child_token())
+            .with_stateful_mode(false)
+            .with_json_response(true),
+    );
+
+    let router = axum::Router::new().nest_service("/mcp", service);
+    let tcp_listener = tokio::net::TcpListener::bind(MCP_BIND_ADDRESS).await?;
+    tracing::info!(
+        "Strategy sym MCP server listening on http://{}/mcp",
+        MCP_BIND_ADDRESS
+    );
+    axum::serve(tcp_listener, router)
+        .with_graceful_shutdown(async move {
+            tokio::signal::ctrl_c().await.unwrap();
+            ct.cancel();
+        })
+        .await?;
+    Ok(())
 }

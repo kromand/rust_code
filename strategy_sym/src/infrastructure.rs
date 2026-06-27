@@ -1,5 +1,6 @@
 pub mod infstrt {
     use crate::defines::*;
+    use crate::map::terrain::TerrainGrid;
     use crate::units::unit::{UnitId, UnitInfo};
     use macroquad::prelude::*;
     use std::collections::HashSet;
@@ -239,6 +240,20 @@ pub mod infstrt {
             new_infr: Arc<Mutex<InfrObject>>,
         ) {
             self.infr_objects.push(new_infr);
+        }
+        /// Creates a new infrastructure object and registers it in both the
+        /// container (so it is drawn and ticked) and the map tile grid (so it
+        /// affects gameplay, e.g. mine damage and `has_infrastructure` checks).
+        pub fn build_infrastructure(
+            self: &mut InfrastructureContainer,
+            map: &mut TerrainGrid,
+            infr_type: InfrastructureEnum,
+            loc: GridTile,
+            owner: Entity,
+        ) {
+            let new_infr = Arc::new(Mutex::new(InfrObject::new(infr_type, loc, owner)));
+            map.add_infr(new_infr.clone());
+            self.add_infr_objest(new_infr);
         }
         //add few test infra objects (mines, factory...)
         pub fn init(self: &mut InfrastructureContainer) {

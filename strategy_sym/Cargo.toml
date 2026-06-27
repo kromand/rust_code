@@ -9,10 +9,12 @@ load_file = "1.0.1"
 macroquad = "0.4.14"
 strum_macros = "0.28.0"
 anyhow = "1.0.102"
-rmcp = { version = "1.6.0", features = ["server", "client", "transport-io", "macros"] }
+rmcp = { version = "1.6.0", features = ["server", "client", "transport-io", "macros", "transport-streamable-http-server"] }
 schemars = "1.2.1"
 serde = "1.0.228"
 tokio = { version = "1.52.3", features = ["full"] }
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+axum = "0.8.9"
+tokio-util = "0.7.18"
 

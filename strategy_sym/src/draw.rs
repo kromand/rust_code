@@ -1,4 +1,5 @@
 use crate::defines::*;
+use crate::game_assets::GameAssets;
 use crate::infrastructure::infstrt::*;
 use crate::map::terrain::*;
 use crate::units::unit::*;
@@ -28,15 +29,15 @@ impl Textures {
 // Scene-level draw calls
 // ---------------------------------------------------------------------------
 
-pub async fn draw_terrain(textures: &mut Textures, map: &mut TerrainGrid, tile_count: GridTile) {
+pub async fn draw_terrain(game_assets: &mut GameAssets, tile_count: GridTile) {
     for c in 0..tile_count.col {
         for r in 0..tile_count.row {
             let tile = GridTile::new(r, c);
-            if let Some(t_type) = map.get_terrain_at(tile) {
+            if let Some(t_type) = game_assets.map.get_terrain_at(tile) {
                 paint_tile(
                     tile,
                     TILE_SIZE,
-                    textures.terrain.get_tile_texture(t_type),
+                    game_assets.textures.terrain.get_tile_texture(t_type),
                     false,
                 )
                 .await;
@@ -45,11 +46,9 @@ pub async fn draw_terrain(textures: &mut Textures, map: &mut TerrainGrid, tile_c
     }
 }
 
-pub async fn draw_infrastructure(
-    textures: &mut Textures,
-    infra_container: &InfrastructureContainer,
-) {
-    for infr_arc in infra_container.infr_objects.iter() {
+pub async fn draw_infrastructure(game_assets: &mut GameAssets) {
+    let textures = &mut game_assets.textures;
+    for infr_arc in game_assets.infr_container.infr_objects.iter() {
         let (loc, tp, detected) = {
             let obj = infr_arc.lock().unwrap();
             (obj.location, obj.infr_type, obj.detected)
@@ -77,11 +76,12 @@ pub async fn draw_player_unit(unit: &mut UnitInfo, textures: &mut Textures, posi
     draw_health_bar(TILE_SIZE, position, unit.get_health_bar(), Entity::Player, false).await;
 }
 
-pub async fn draw_player_units(
-    textures: &mut Textures,
-    player_units_map: &mut UnitsContainer,
-    exclude_tile: Option<GridTile>,
-) {
+pub async fn draw_player_units(game_assets: &mut GameAssets, exclude_tile: Option<GridTile>) {
+    let GameAssets {
+        textures,
+        player_units_map,
+        ..
+    } = game_assets;
     for (tile, unit_stack) in &mut player_units_map.units_by_tile {
         if exclude_tile == Some(*tile) {
             continue;
@@ -93,7 +93,12 @@ pub async fn draw_player_units(
     }
 }
 
-pub async fn draw_destroyed_units(destroyed_units: &mut Vec<UnitInfo>, textures: &mut Textures) {
+pub async fn draw_destroyed_units(game_assets: &mut GameAssets) {
+    let GameAssets {
+        destroyed_units,
+        textures,
+        ..
+    } = game_assets;
     let mut i = 0;
     while i < destroyed_units.len() {
         let frame = destroyed_units[i].next_frame();
@@ -112,12 +117,14 @@ pub async fn draw_destroyed_units(destroyed_units: &mut Vec<UnitInfo>, textures:
     }
 }
 
-pub async fn draw_visible_enemy_units(
-    map: &mut TerrainGrid,
-    enemy_units: &mut UnitsContainer,
-    textures: &mut Textures,
-    player_units: &UnitsContainer,
-) {
+pub async fn draw_visible_enemy_units(game_assets: &mut GameAssets) {
+    let GameAssets {
+        map,
+        enemy_units_map: enemy_units,
+        textures,
+        player_units_map: player_units,
+        ..
+    } = game_assets;
     for (tile, unit_ids) in &map.visible_units_per_tile {
         for unit_id in unit_ids {
             if let Some(unit) = enemy_units.units_by_tile.get_mut(tile).and_then(|s| s.units.get_mut(unit_id)) {
