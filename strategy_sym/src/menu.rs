@@ -1,7 +1,7 @@
 use macroquad::prelude::*;
 use macroquad::ui::{Skin, Ui, hash, root_ui, widgets};
 
-use crate::defines::{GridTile, InfrastructureEnum, TILE_SIZE};
+use crate::defines::{Entity, GridTile, InfrastructureEnum, TILE_SIZE};
 use crate::game_assets::GameAssets;
 use crate::infrastructure::infstrt::InfrastructureContainer;
 use crate::map::terrain::TerrainGrid;
@@ -148,14 +148,18 @@ fn popup_item_count(
 fn render_popup_menu_content(
     ui: &mut Ui,
     mouse: &mut MouseTracker,
+    game_assets: &mut GameAssets,
     selection: &mut MenuType,
-    terrain_grid: &mut TerrainGrid,
     grid_tile: GridTile,
     has_factory: bool,
     has_airfield: bool,
-    player_units: &UnitsContainer,
-    infr_container: &mut InfrastructureContainer,
 ) {
+    let GameAssets {
+        map: terrain_grid,
+        player_units_map: player_units,
+        infr_container,
+        ..
+    } = game_assets;
     match selection {
         MenuType::Main => render_popup_main_menu(ui, selection, mouse, has_factory, has_airfield),
         MenuType::Factory => {
@@ -328,58 +332,62 @@ pub async fn show_menu(game_state: &mut GameState) {
     );
 }
 
-pub fn show_popup_menu(game_assets: &mut GameAssets, selection: &mut MenuType) {
-    let GameAssets {
-        mouse,
-        map: terrain_grid,
-        player_units_map: player_units,
-        infr_container,
-        ..
-    } = game_assets;
-    if mouse.is_popup_visible() {
-        let location = vec2(mouse.popup_position().0, mouse.popup_position().1);
-        if mouse.popup_id().is_none() {
-            mouse.set_popup_id(hash!());
-        }
+pub fn show_popup_menu(
+    mouse: &mut MouseTracker,
+    game_assets: &mut GameAssets,
+    selection: &mut MenuType,
+) {
+    if !mouse.is_popup_visible() {
+        return;
+    }
+    let location = vec2(mouse.popup_position().0, mouse.popup_position().1);
+    if mouse.popup_id().is_none() {
+        mouse.set_popup_id(hash!());
+    }
 
-        let grid_col = (mouse.popup_position().0 / TILE_SIZE.0) as u16;
-        let grid_row = (mouse.popup_position().1 / TILE_SIZE.1) as u16;
-        let grid_tile = GridTile::new(grid_row, grid_col);
-        let has_factory = terrain_grid.has_infrastructure(grid_tile, InfrastructureEnum::Factory);
-        let has_airfield = terrain_grid.has_infrastructure(grid_tile, InfrastructureEnum::Airfield);
+    let grid_col = (mouse.popup_position().0 / TILE_SIZE.0) as u16;
+    let grid_row = (mouse.popup_position().1 / TILE_SIZE.1) as u16;
+    let grid_tile = GridTile::new(grid_row, grid_col);
 
-        if mouse.popup_position_changed() {
-            *selection = MenuType::Main;
-            mouse.reset_popup_position_changed();
-        }
+    if mouse.popup_position_changed() {
+        *selection = MenuType::Main;
+        mouse.reset_popup_position_changed();
+    }
 
-        let item_count = popup_item_count(
+    let has_factory =
+        game_assets
+            .map
+            .has_infrastructure(grid_tile, InfrastructureEnum::Factory, Entity::Player);
+    let has_airfield =
+        game_assets
+            .map
+            .has_infrastructure(grid_tile, InfrastructureEnum::Airfield, Entity::Player);
+
+    let item_count = popup_item_count(
+        selection,
+        &game_assets.map,
+        grid_tile,
+        has_factory,
+        has_airfield,
+        &game_assets.player_units_map,
+    );
+    let window_size = vec2(100.0, 40.0 + item_count as f32 * 20.0 + 10.0);
+
+    // Store popup bounds for click detection
+    let popup_id = mouse.popup_id().unwrap();
+    mouse.set_popup_bounds(location.x, location.y, window_size.x, window_size.y);
+
+    root_ui().move_window(popup_id, location);
+    root_ui().window(popup_id, location, window_size, |ui| {
+        ui.label(vec2(0.0, 10.0), "Selection:");
+        render_popup_menu_content(
+            ui,
+            mouse,
+            game_assets,
             selection,
-            terrain_grid,
             grid_tile,
             has_factory,
             has_airfield,
-            player_units,
         );
-        let window_size = vec2(100.0, 40.0 + item_count as f32 * 20.0 + 10.0);
-
-        // Store popup bounds for click detection
-        mouse.set_popup_bounds(location.x, location.y, window_size.x, window_size.y);
-
-        root_ui().move_window(mouse.popup_id().unwrap(), location);
-        root_ui().window(mouse.popup_id().unwrap(), location, window_size, |ui| {
-            ui.label(vec2(0.0, 10.0), "Selection:");
-            render_popup_menu_content(
-                ui,
-                mouse,
-                selection,
-                terrain_grid,
-                grid_tile,
-                has_factory,
-                has_airfield,
-                player_units,
-                infr_container,
-            );
-        });
-    }
+    });
 }

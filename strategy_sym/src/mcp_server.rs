@@ -39,7 +39,10 @@ pub enum McpCommand {
         target: GridTile,
         resp: oneshot::Sender<String>,
     },
-    ListPlayerUnits {
+    ListMyUnits {
+        resp: oneshot::Sender<String>,
+    },
+    ListMyInfrastructure {
         resp: oneshot::Sender<String>,
     },
     ListVisibleEnemyUnits {
@@ -105,8 +108,8 @@ impl StratCommands {
 
 #[tool_router(server_handler)]
 impl StratCommands {
-    #[tool(description = "Move a player unit to a target tile. The move is validated against \
-        the unit's allowed terrain types and its maximum movement rate (Chebyshev distance).")]
+    #[tool(description = "Move one of your own units to a target tile. The move is validated \
+        against the unit's allowed terrain types and its maximum movement rate (Chebyshev distance).")]
     async fn move_unit(
         &self,
         Parameters(MoveUnitRequest { unit_id, row, col }): Parameters<MoveUnitRequest>,
@@ -119,13 +122,19 @@ impl StratCommands {
         .await
     }
 
-    #[tool(description = "List all player-controlled units with their IDs, names, types, \
-        tile coordinates, and current health.")]
-    async fn list_player_units(&self) -> String {
-        self.request(|resp| McpCommand::ListPlayerUnits { resp }).await
+    #[tool(description = "List all of your own units (you command the enemy faction) \
+        with their IDs, names, types, tile coordinates, and current health.")]
+    async fn list_my_units(&self) -> String {
+        self.request(|resp| McpCommand::ListMyUnits { resp }).await
     }
 
-    #[tool(description = "List all enemy units currently visible to the player, \
+    #[tool(description = "List all of your own infrastructure (factories, airfields, \
+        bunkers, mines, etc.) with their types and tile coordinates.")]
+    async fn list_my_infrastructure(&self) -> String {
+        self.request(|resp| McpCommand::ListMyInfrastructure { resp }).await
+    }
+
+    #[tool(description = "List all opposing (player) units your forces can currently see, \
         including their types, tile coordinates, and health.")]
     async fn list_visible_enemy_units(&self) -> String {
         self.request(|resp| McpCommand::ListVisibleEnemyUnits { resp }).await

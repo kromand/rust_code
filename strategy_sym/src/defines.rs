@@ -25,7 +25,7 @@ pub enum TerrainTilesEnum {
     Urban,
     End,
 }
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Entity {
     Player,
     Enemy,

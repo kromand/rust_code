@@ -2,6 +2,7 @@ use crate::defines::*;
 use crate::draw::paint_tile_at_pixel;
 use crate::game_assets::GameAssets;
 use crate::map::terrain::TerrainGrid;
+use crate::mouse::MouseTracker;
 use crate::random;
 use crate::units::unit::*;
 use std::collections::HashSet;
@@ -10,16 +11,17 @@ pub fn process_unit_movement(
     new_pos: GridTile,
     unit: &mut UnitInfo,
     map: &mut TerrainGrid,
+    ent: Entity,
 ) -> MoveResult {
     if unit.location != new_pos && unit.allowed_move(map.get_terrain_at(new_pos).unwrap()) {
         let (move_successful, mine_damage) =
-            map.move_unit_to_new_tile(unit.unit_id, unit.location, new_pos, Entity::Player);
+            map.move_unit_to_new_tile(unit.unit_id, unit.location, new_pos, ent);
 
         if mine_damage
             && !is_air_unit(unit.unit_type)
             && unit.assess_damage(random::random_nums::generate(100))
         {
-            map.remove_unit(unit.unit_id, unit.location, Entity::Player);
+            map.remove_unit(unit.unit_id, unit.location, ent);
             return MoveResult::UnitDestroyed;
         }
         if move_successful {
@@ -28,7 +30,7 @@ pub fn process_unit_movement(
                 new_pos,
                 unit.visibility_range,
                 unit.prob_to_detect_units,
-                Entity::Player,
+                ent,
             );
             return MoveResult::Success;
         }
@@ -129,9 +131,11 @@ pub fn resolve_combat(game_assets: &mut GameAssets) {
 /// While dragging, renders the unit under the cursor and returns the source tile
 /// so the caller can skip drawing it at its original position.
 /// On drop, validates and applies the move.
-pub async fn mouse_unit_drag_handler(game_assets: &mut GameAssets) -> Option<GridTile> {
+pub async fn mouse_unit_drag_handler(
+    mouse: &MouseTracker,
+    game_assets: &mut GameAssets,
+) -> Option<GridTile> {
     let GameAssets {
-        mouse,
         player_units_map,
         textures,
         map,
@@ -170,7 +174,7 @@ pub async fn mouse_unit_drag_handler(game_assets: &mut GameAssets) -> Option<Gri
                 .units
                 .get_mut(&id)
             {
-                match process_unit_movement(new_position, unit, map) {
+                match process_unit_movement(new_position, unit, map, Entity::Player) {
                     MoveResult::Success => {
                         player_units_map.move_unit(start_pos, id, new_position);
                         refresh_contested_tile(

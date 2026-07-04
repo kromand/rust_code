@@ -73,6 +73,20 @@ pub mod terrain {
             size
         }
 
+        /// Collects every `(tile, unit_id)` of entity `ent` that has been detected
+        /// (i.e. is currently visible to the opposing side).
+        pub fn visible_units_for(self: &TerrainGrid, ent: Entity) -> Vec<(GridTile, usize)> {
+            let mut out = Vec::new();
+            for row in &self.map {
+                for tile in row {
+                    for id in &tile.visible_units[ent as usize] {
+                        out.push((tile.location, *id));
+                    }
+                }
+            }
+            out
+        }
+
         pub fn get_tile_for_coord(self: &mut TerrainGrid, tile: GridTile) -> Option<&mut TileInfo> {
             if (tile.row as usize) < self.map.len()
                 && (tile.col as usize) < self.map[tile.row as usize].len()
@@ -99,17 +113,20 @@ pub mod terrain {
             None
         }
 
+        /// True if `tile` holds infrastructure of `infra_type` owned by `owner`.
         pub fn has_infrastructure(
             self: &TerrainGrid,
             tile: GridTile,
             infra_type: InfrastructureEnum,
+            owner: Entity,
         ) -> bool {
             if (tile.row as usize) < self.map.len()
                 && (tile.col as usize) < self.map[tile.row as usize].len()
             {
                 self.map[tile.row as usize][tile.col as usize]
                     .infrastruct
-                    .contains_key(&infra_type)
+                    .get(&infra_type)
+                    .map_or(false, |obj| obj.lock().unwrap().owner == owner)
             } else {
                 false
             }
