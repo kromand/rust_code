@@ -52,6 +52,11 @@ pub enum McpCommand {
         tile: GridTile,
         resp: oneshot::Sender<String>,
     },
+    EnqueueUnit {
+        tile: GridTile,
+        unit_type: String,
+        resp: oneshot::Sender<String>,
+    },
     GetMap {
         resp: oneshot::Sender<String>,
     },
@@ -77,6 +82,19 @@ pub struct TileInfoRequest {
     pub row: u16,
     #[schemars(description = "tile column (x)")]
     pub col: u16,
+}
+
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+pub struct EnqueueUnitRequest {
+    #[schemars(description = "row (y) of the factory or airfield tile")]
+    pub row: u16,
+    #[schemars(description = "column (x) of the factory or airfield tile")]
+    pub col: u16,
+    #[schemars(
+        description = "unit type to queue, e.g. Tank, Infantry, Scout, Engineers, APC, \
+        RocketArty, Artillery, AttackHeli, TransportHeli, Plane, SAM"
+    )]
+    pub unit_type: String,
 }
 
 // ---------------------------------------------------------------------------
@@ -146,6 +164,20 @@ impl StratCommands {
         Parameters(TileInfoRequest { row, col }): Parameters<TileInfoRequest>,
     ) -> String {
         self.request(|resp| McpCommand::TileInfo { tile: GridTile::new(row, col), resp }).await
+    }
+
+    #[tool(description = "Queue a unit for production at one of your own factories or airfields. \
+        Give the building's tile and the unit type; the unit must be buildable there.")]
+    async fn enqueue_unit(
+        &self,
+        Parameters(EnqueueUnitRequest { row, col, unit_type }): Parameters<EnqueueUnitRequest>,
+    ) -> String {
+        self.request(|resp| McpCommand::EnqueueUnit {
+            tile: GridTile::new(row, col),
+            unit_type,
+            resp,
+        })
+        .await
     }
 
     #[tool(description = "Return the entire terrain map as a character grid. \

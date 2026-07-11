@@ -7,6 +7,24 @@ use crate::infrastructure::infstrt::InfrastructureContainer;
 use crate::map::terrain::TerrainGrid;
 use crate::units::unit::{UnitId, UnitInfo, UnitsContainer, init_enemy_units};
 
+struct PlayerResources {
+    pub cash: i32,
+    pub monthly_income: i32,
+    pub monthly_unit_cost: i32,
+    pub monthly_infr_cost: i32,
+}
+
+impl PlayerResources {
+    pub fn new() -> PlayerResources {
+        PlayerResources {
+            cash: 1000,
+            monthly_income: 100,
+            monthly_unit_cost: 0,
+            monthly_infr_cost: 0,
+        }
+    }
+}
+
 /// All long-lived game state, bundled so it can be passed around as a single
 /// reference instead of threading each field through every function.
 pub struct GameAssets {

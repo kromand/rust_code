@@ -5,8 +5,8 @@ pub mod infstrt {
     use macroquad::prelude::*;
     use std::collections::HashSet;
     use std::collections::VecDeque;
-    use std::sync::Arc;
-    use std::sync::Mutex;
+    use std::cell::RefCell;
+    use std::rc::Rc;
 
     /***************************** Textures *****************************/
     pub struct TextureContainer {
@@ -226,18 +226,18 @@ pub mod infstrt {
 
     /***************************** Container *****************************/
     pub struct InfrastructureContainer {
-        pub infr_objects: Vec<Arc<Mutex<InfrObject>>>,
+        pub infr_objects: Vec<Rc<RefCell<InfrObject>>>,
     }
 
     impl InfrastructureContainer {
         pub fn new() -> InfrastructureContainer {
             InfrastructureContainer {
-                infr_objects: Vec::<Arc<Mutex<InfrObject>>>::new(),
+                infr_objects: Vec::<Rc<RefCell<InfrObject>>>::new(),
             }
         }
         pub fn add_infr_objest(
             self: &mut InfrastructureContainer,
-            new_infr: Arc<Mutex<InfrObject>>,
+            new_infr: Rc<RefCell<InfrObject>>,
         ) {
             self.infr_objects.push(new_infr);
         }
@@ -251,19 +251,19 @@ pub mod infstrt {
             loc: GridTile,
             owner: Entity,
         ) {
-            let new_infr = Arc::new(Mutex::new(InfrObject::new(infr_type, loc, owner)));
+            let new_infr = Rc::new(RefCell::new(InfrObject::new(infr_type, loc, owner)));
             map.add_infr(new_infr.clone());
             self.add_infr_objest(new_infr);
         }
         //add few test infra objects (mines, factory...)
         pub fn init(self: &mut InfrastructureContainer) {
             //add start objects
-            self.infr_objects.push(Arc::new(Mutex::new(InfrObject::new(
+            self.infr_objects.push(Rc::new(RefCell::new(InfrObject::new(
                 InfrastructureEnum::Factory,
                 GridTile::new(5, 18),
                 Entity::Enemy,
             ))));
-            self.infr_objects.push(Arc::new(Mutex::new(InfrObject::new(
+            self.infr_objects.push(Rc::new(RefCell::new(InfrObject::new(
                 InfrastructureEnum::Factory,
                 GridTile::new(2, 2),
                 Entity::Player,
@@ -272,32 +272,31 @@ pub mod infstrt {
             self.infr_objects
                 .last()
                 .unwrap()
-                .lock()
-                .unwrap()
+                .borrow_mut()
                 .unit_production
                 .as_mut()
                 .unwrap()
                 .add_to_queue(UnitTilesEnum::Tank);
 
-            self.infr_objects.push(Arc::new(Mutex::new(InfrObject::new(
+            self.infr_objects.push(Rc::new(RefCell::new(InfrObject::new(
                 InfrastructureEnum::Bunker,
                 GridTile::new(3, 2),
                 Entity::Player,
             ))));
 
-            self.infr_objects.push(Arc::new(Mutex::new(InfrObject::new(
+            self.infr_objects.push(Rc::new(RefCell::new(InfrObject::new(
                 InfrastructureEnum::Airfield,
                 GridTile::new(4, 2),
                 Entity::Player,
             ))));
 
-            self.infr_objects.push(Arc::new(Mutex::new(InfrObject::new(
+            self.infr_objects.push(Rc::new(RefCell::new(InfrObject::new(
                 InfrastructureEnum::Mines,
                 GridTile::new(5, 2),
                 Entity::Player,
             ))));
 
-            self.infr_objects.push(Arc::new(Mutex::new(InfrObject::new(
+            self.infr_objects.push(Rc::new(RefCell::new(InfrObject::new(
                 InfrastructureEnum::Mines,
                 GridTile::new(5, 19),
                 Entity::Enemy,
@@ -310,7 +309,7 @@ pub mod infstrt {
             let mut produced_units = Vec::new();
 
             for infr_arc in self.infr_objects.iter_mut() {
-                let mut infr = infr_arc.lock().unwrap();
+                let mut infr = infr_arc.borrow_mut();
                 let loc = infr.location;
                 let own = infr.owner;
 

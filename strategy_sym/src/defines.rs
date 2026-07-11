@@ -67,6 +67,28 @@ pub enum UnitTilesEnum {
     End,
 }
 
+impl UnitTilesEnum {
+    /// Parses a unit type from its variant name (case-insensitive). Returns
+    /// `None` for unknown names and for the `End` sentinel.
+    pub fn from_name(name: &str) -> Option<UnitTilesEnum> {
+        use UnitTilesEnum::*;
+        match name.to_ascii_lowercase().as_str() {
+            "tank" => Some(Tank),
+            "infantry" => Some(Infantry),
+            "scout" => Some(Scout),
+            "engineers" => Some(Engineers),
+            "apc" => Some(APC),
+            "rocketarty" => Some(RocketArty),
+            "artillery" => Some(Artillery),
+            "attackheli" => Some(AttackHeli),
+            "transportheli" => Some(TransportHeli),
+            "plane" => Some(Plane),
+            "sam" => Some(SAM),
+            _ => None,
+        }
+    }
+}
+
 /// Special actions a unit may perform beyond moving and fighting.
 /// Which actions a unit has is declared per unit type in `UnitInfo::new`.
 #[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Display)]

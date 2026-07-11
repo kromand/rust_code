@@ -7,7 +7,8 @@ pub mod terrain {
     use crate::random::random_nums;
     use std::fs::File;
     use std::io::{BufRead, BufReader};
-    use std::sync::{Arc, Mutex};
+    use std::cell::RefCell;
+    use std::rc::Rc;
 
     use macroquad::prelude::*;
     pub struct TileInfo {
@@ -15,7 +16,7 @@ pub mod terrain {
         location: GridTile,
         visible_units: [HashSet<usize>; 2],
         hidden_units: [HashSet<usize>; 2],
-        infrastruct: HashMap<InfrastructureEnum, Arc<Mutex<infstrt::InfrObject>>>,
+        infrastruct: HashMap<InfrastructureEnum, Rc<RefCell<infstrt::InfrObject>>>,
     }
     pub struct TerrainGrid {
         map: Vec<Vec<TileInfo>>,
@@ -39,7 +40,7 @@ pub mod terrain {
                         visible_units: [HashSet::<usize>::new(), HashSet::<usize>::new()],
                         hidden_units: [HashSet::<usize>::new(), HashSet::<usize>::new()],
                         infrastruct:
-                            HashMap::<InfrastructureEnum, Arc<Mutex<infstrt::InfrObject>>>::new(),
+                            HashMap::<InfrastructureEnum, Rc<RefCell<infstrt::InfrObject>>>::new(),
                     })
                     .collect();
                 m.push(row);
@@ -126,7 +127,7 @@ pub mod terrain {
                 self.map[tile.row as usize][tile.col as usize]
                     .infrastruct
                     .get(&infra_type)
-                    .map_or(false, |obj| obj.lock().unwrap().owner == owner)
+                    .map_or(false, |obj| obj.borrow().owner == owner)
             } else {
                 false
             }
@@ -144,7 +145,7 @@ pub mod terrain {
                     .infrastruct
                     .get(&InfrastructureEnum::Factory)
                 {
-                    if let Some(unit_production) = factory.lock().unwrap().unit_production.as_mut()
+                    if let Some(unit_production) = factory.borrow_mut().unit_production.as_mut()
                     {
                         unit_production.add_to_queue(unit_type);
                         return true;
@@ -157,7 +158,7 @@ pub mod terrain {
         pub fn get_factory_allowed_units(&self, tile: GridTile) -> Vec<UnitTilesEnum> {
             if let Some(tile_info) = self.get_tile_info(tile) {
                 if let Some(factory) = tile_info.infrastruct.get(&InfrastructureEnum::Factory) {
-                    if let Some(unit_prod) = &factory.lock().unwrap().unit_production {
+                    if let Some(unit_prod) = &factory.borrow().unit_production {
                         return unit_prod.allowed_units.iter().cloned().collect();
                     }
                 }
@@ -177,7 +178,7 @@ pub mod terrain {
                     .infrastruct
                     .get(&InfrastructureEnum::Airfield)
                 {
-                    if let Some(unit_production) = airfield.lock().unwrap().unit_production.as_mut()
+                    if let Some(unit_production) = airfield.borrow_mut().unit_production.as_mut()
                     {
                         unit_production.add_to_queue(unit_type);
                         return true;
@@ -190,7 +191,7 @@ pub mod terrain {
         pub fn get_airfield_allowed_units(&self, tile: GridTile) -> Vec<UnitTilesEnum> {
             if let Some(tile_info) = self.get_tile_info(tile) {
                 if let Some(airfield) = tile_info.infrastruct.get(&InfrastructureEnum::Airfield) {
-                    if let Some(unit_prod) = &airfield.lock().unwrap().unit_production {
+                    if let Some(unit_prod) = &airfield.borrow().unit_production {
                         return unit_prod.allowed_units.iter().cloned().collect();
                     }
                 }
@@ -390,9 +391,9 @@ pub mod terrain {
                 .unwrap_or_default()
         }
 
-        pub fn add_infr(self: &mut TerrainGrid, new_infr: Arc<Mutex<infstrt::InfrObject>>) {
-            let tp = new_infr.lock().unwrap().infr_type;
-            let loc = new_infr.lock().unwrap().location;
+        pub fn add_infr(self: &mut TerrainGrid, new_infr: Rc<RefCell<infstrt::InfrObject>>) {
+            let tp = new_infr.borrow().infr_type;
+            let loc = new_infr.borrow().location;
 
             if let Some(tile_info) = self.get_tile_for_coord(loc) {
                 tile_info.infrastruct.insert(tp, new_infr);

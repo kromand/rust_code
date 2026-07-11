@@ -50,7 +50,7 @@ pub async fn draw_infrastructure(game_assets: &mut GameAssets) {
     let textures = &mut game_assets.textures;
     for infr_arc in game_assets.infr_container.infr_objects.iter() {
         let (loc, tp, detected) = {
-            let obj = infr_arc.lock().unwrap();
+            let obj = infr_arc.borrow();
             (obj.location, obj.infr_type, obj.detected)
         };
         if detected {

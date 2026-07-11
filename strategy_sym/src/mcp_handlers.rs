@@ -122,7 +122,7 @@ pub fn mcp_list_visible_enemies(map: &TerrainGrid, player_units: &UnitsContainer
 pub fn mcp_list_my_infrastructure(infr_container: &InfrastructureContainer) -> String {
     let mut lines = vec!["Your infrastructure:".to_string()];
     for infr_arc in &infr_container.infr_objects {
-        let obj = infr_arc.lock().unwrap();
+        let obj = infr_arc.borrow();
         if obj.owner == Entity::Enemy {
             lines.push(format!(
                 "  type={} loc=({},{})",
@@ -134,6 +134,39 @@ pub fn mcp_list_my_infrastructure(infr_container: &InfrastructureContainer) -> S
         lines.push("  (none)".to_string());
     }
     lines.join("\n")
+}
+
+/// Queues a unit for production at the AI's own (enemy-owned) factory or
+/// airfield on `tile`. The unit must be buildable at that building.
+pub fn mcp_enqueue_unit(tile: GridTile, unit_type_name: &str, map: &mut TerrainGrid) -> String {
+    let unit_type = match UnitTilesEnum::from_name(unit_type_name) {
+        Some(t) => t,
+        None => return format!("Unknown unit type '{}'", unit_type_name),
+    };
+
+    if map.has_infrastructure(tile, InfrastructureEnum::Factory, Entity::Enemy) {
+        if !map.get_factory_allowed_units(tile).contains(&unit_type) {
+            return format!(
+                "Factory at ({},{}) cannot build {}",
+                tile.row, tile.col, unit_type
+            );
+        }
+        map.enqueue_unit_in_factory(tile, unit_type);
+        return format!("Queued {} at factory ({},{})", unit_type, tile.row, tile.col);
+    }
+
+    if map.has_infrastructure(tile, InfrastructureEnum::Airfield, Entity::Enemy) {
+        if !map.get_airfield_allowed_units(tile).contains(&unit_type) {
+            return format!(
+                "Airfield at ({},{}) cannot build {}",
+                tile.row, tile.col, unit_type
+            );
+        }
+        map.enqueue_unit_in_airfield(tile, unit_type);
+        return format!("Queued {} at airfield ({},{})", unit_type, tile.row, tile.col);
+    }
+
+    format!("No factory or airfield you own at ({},{})", tile.row, tile.col)
 }
 
 pub fn mcp_tile_info(tile: GridTile, map: &TerrainGrid) -> String {
@@ -195,6 +228,13 @@ pub fn process_mcp_commands(
             }
             McpCommand::TileInfo { tile, resp } => {
                 let _ = resp.send(mcp_tile_info(tile, map));
+            }
+            McpCommand::EnqueueUnit {
+                tile,
+                unit_type,
+                resp,
+            } => {
+                let _ = resp.send(mcp_enqueue_unit(tile, &unit_type, map));
             }
             McpCommand::GetMap { resp } => {
                 let result = std::fs::read_to_string("assets/terrain_map.txt")
