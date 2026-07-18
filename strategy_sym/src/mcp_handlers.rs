@@ -6,6 +6,7 @@ use crate::map::terrain::TerrainGrid;
 use crate::mcp_server::McpCommand;
 use crate::units::unit::{UnitInfo, UnitsContainer, unit_has_destruction_animation};
 use std::collections::HashSet;
+use tokio::sync::oneshot;
 
 // ---------------------------------------------------------------------------
 // Per-command handlers — called by process_mcp_commands each frame
@@ -22,10 +23,10 @@ pub fn mcp_move_unit(
     map: &mut TerrainGrid,
     destroyed_units: &mut Vec<UnitInfo>,
     contested_tiles: &mut HashSet<GridTile>,
-) -> String {
+) -> Result<String, String> {
     let start_tile = match enemy_units.find_unit_tile(unit_id) {
         Some(t) => t,
-        None => return format!("Unit {} not found", unit_id),
+        None => return Err(format!("Unit {} not found", unit_id)),
     };
 
     let movement_rate = enemy_units.units_by_tile[&start_tile].units[&unit_id].movement_rate;
@@ -34,10 +35,10 @@ pub fn mcp_move_unit(
     let chebyshev = dr.max(dc);
 
     if chebyshev > movement_rate {
-        return format!(
+        return Err(format!(
             "Target ({},{}) out of range: distance {} exceeds movement rate {}",
             target.row, target.col, chebyshev as u32, movement_rate as u32
-        );
+        ));
     }
 
     let unit = enemy_units
@@ -51,7 +52,10 @@ pub fn mcp_move_unit(
             enemy_units.move_unit(start_tile, unit_id, target);
             refresh_contested_tile(start_tile, player_units, enemy_units, contested_tiles);
             refresh_contested_tile(target, player_units, enemy_units, contested_tiles);
-            format!("Unit {} moved to ({},{})", unit_id, target.row, target.col)
+            Ok(format!(
+                "Unit {} moved to ({},{})",
+                unit_id, target.row, target.col
+            ))
         }
         MoveResult::UnitDestroyed => {
             if let Some(mut dead_unit) = enemy_units.pop_unit(start_tile, unit_id) {
@@ -62,15 +66,15 @@ pub fn mcp_move_unit(
                 }
             }
             refresh_contested_tile(start_tile, player_units, enemy_units, contested_tiles);
-            format!(
+            Ok(format!(
                 "Unit {} destroyed by mines at ({},{})",
                 unit_id, target.row, target.col
-            )
+            ))
         }
-        MoveResult::InvalidMove => format!(
+        MoveResult::InvalidMove => Err(format!(
             "Cannot move to ({},{}): terrain not passable for this unit type",
             target.row, target.col
-        ),
+        )),
     }
 }
 
@@ -138,40 +142,53 @@ pub fn mcp_list_my_infrastructure(infr_container: &InfrastructureContainer) -> S
 
 /// Queues a unit for production at the AI's own (enemy-owned) factory or
 /// airfield on `tile`. The unit must be buildable at that building.
-pub fn mcp_enqueue_unit(tile: GridTile, unit_type_name: &str, map: &mut TerrainGrid) -> String {
+pub fn mcp_enqueue_unit(
+    tile: GridTile,
+    unit_type_name: &str,
+    map: &mut TerrainGrid,
+) -> Result<String, String> {
     let unit_type = match UnitTilesEnum::from_name(unit_type_name) {
         Some(t) => t,
-        None => return format!("Unknown unit type '{}'", unit_type_name),
+        None => return Err(format!("Unknown unit type '{}'", unit_type_name)),
     };
 
     if map.has_infrastructure(tile, InfrastructureEnum::Factory, Entity::Enemy) {
         if !map.get_factory_allowed_units(tile).contains(&unit_type) {
-            return format!(
+            return Err(format!(
                 "Factory at ({},{}) cannot build {}",
                 tile.row, tile.col, unit_type
-            );
+            ));
         }
         map.enqueue_unit_in_factory(tile, unit_type);
-        return format!("Queued {} at factory ({},{})", unit_type, tile.row, tile.col);
+        return Ok(format!(
+            "Queued {} at factory ({},{})",
+            unit_type, tile.row, tile.col
+        ));
     }
 
     if map.has_infrastructure(tile, InfrastructureEnum::Airfield, Entity::Enemy) {
         if !map.get_airfield_allowed_units(tile).contains(&unit_type) {
-            return format!(
+            return Err(format!(
                 "Airfield at ({},{}) cannot build {}",
                 tile.row, tile.col, unit_type
-            );
+            ));
         }
         map.enqueue_unit_in_airfield(tile, unit_type);
-        return format!("Queued {} at airfield ({},{})", unit_type, tile.row, tile.col);
+        return Ok(format!(
+            "Queued {} at airfield ({},{})",
+            unit_type, tile.row, tile.col
+        ));
     }
 
-    format!("No factory or airfield you own at ({},{})", tile.row, tile.col)
+    Err(format!(
+        "No factory or airfield you own at ({},{})",
+        tile.row, tile.col
+    ))
 }
 
-pub fn mcp_tile_info(tile: GridTile, map: &TerrainGrid) -> String {
+pub fn mcp_tile_info(tile: GridTile, map: &TerrainGrid) -> Result<String, String> {
     match map.get_terrain_type(tile) {
-        None => format!("Tile ({},{}) is out of bounds", tile.row, tile.col),
+        None => Err(format!("Tile ({},{}) is out of bounds", tile.row, tile.col)),
         Some(terrain) => {
             let infra = map.get_tile_infrastructure(tile);
             let infra_str = if infra.is_empty() {
@@ -183,10 +200,10 @@ pub fn mcp_tile_info(tile: GridTile, map: &TerrainGrid) -> String {
                     .collect::<Vec<_>>()
                     .join(", ")
             };
-            format!(
+            Ok(format!(
                 "Tile ({},{}): terrain={}, infrastructure={}",
                 tile.row, tile.col, terrain, infra_str
-            )
+            ))
         }
     }
 }
@@ -194,6 +211,19 @@ pub fn mcp_tile_info(tile: GridTile, map: &TerrainGrid) -> String {
 // ---------------------------------------------------------------------------
 // Main dispatch — call once per frame from the game loop
 // ---------------------------------------------------------------------------
+
+/// Sends a fallible handler's result back to the MCP client, logging failures
+/// at WARN. The failure message is still returned to the caller.
+fn reply(resp: oneshot::Sender<String>, result: Result<String, String>) {
+    let msg = match result {
+        Ok(msg) => msg,
+        Err(msg) => {
+            tracing::warn!("MCP command failed: {}", msg);
+            msg
+        }
+    };
+    let _ = resp.send(msg);
+}
 
 pub fn process_mcp_commands(
     cmd_rx: &std::sync::mpsc::Receiver<McpCommand>,
@@ -215,30 +245,64 @@ pub fn process_mcp_commands(
                 target,
                 resp,
             } => {
-                let _ = resp.send(mcp_move_unit(unit_id, target, enemy_units, player_units, map, destroyed_units, contested_tiles));
+                tracing::info!(
+                    "MCP MoveUnit: unit={} target=({},{})",
+                    unit_id,
+                    target.row,
+                    target.col
+                );
+                reply(
+                    resp,
+                    mcp_move_unit(
+                        unit_id,
+                        target,
+                        enemy_units,
+                        player_units,
+                        map,
+                        destroyed_units,
+                        contested_tiles,
+                    ),
+                );
             }
             McpCommand::ListMyUnits { resp } => {
+                tracing::info!("MCP ListMyUnits");
                 let _ = resp.send(mcp_list_my_units(enemy_units));
             }
             McpCommand::ListMyInfrastructure { resp } => {
+                tracing::info!("MCP ListMyInfrastructure");
                 let _ = resp.send(mcp_list_my_infrastructure(infr_container));
             }
             McpCommand::ListVisibleEnemyUnits { resp } => {
+                tracing::info!("MCP ListVisibleEnemyUnits");
                 let _ = resp.send(mcp_list_visible_enemies(map, player_units));
             }
             McpCommand::TileInfo { tile, resp } => {
-                let _ = resp.send(mcp_tile_info(tile, map));
+                tracing::info!("MCP TileInfo: tile=({},{})", tile.row, tile.col);
+                reply(resp, mcp_tile_info(tile, map));
             }
             McpCommand::EnqueueUnit {
                 tile,
                 unit_type,
                 resp,
             } => {
-                let _ = resp.send(mcp_enqueue_unit(tile, &unit_type, map));
+                tracing::info!(
+                    "MCP EnqueueUnit: tile=({},{}) unit_type={}",
+                    tile.row,
+                    tile.col,
+                    unit_type
+                );
+                reply(resp, mcp_enqueue_unit(tile, &unit_type, map));
             }
             McpCommand::GetMap { resp } => {
-                let result = std::fs::read_to_string("assets/terrain_map.txt")
-                    .unwrap_or_else(|e| format!("Failed to read map: {}", e));
+                tracing::info!("MCP GetMap");
+                let result = match std::fs::read_to_string("assets/terrain_map.txt") {
+                    Ok(contents) => contents,
+                    Err(e) => {
+                        let msg = format!("Failed to read map: {}", e);
+                        tracing::warn!("MCP command failed: {}", msg);
+                        msg
+                    }
+                };
                 let _ = resp.send(result);
             }
         }

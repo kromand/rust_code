@@ -26,7 +26,6 @@ use crate::mouse::MouseTracker;
 /*
 3. Add more unit animations
 4. Ranged units attacks
-5. MCP server should also provide infrastructure control, not just units
 7. Expand map size
 8. Add roads and general asset work
 9. Terrain tile textures boundaries - started working on forest to plains transition but it needs more work to look good
