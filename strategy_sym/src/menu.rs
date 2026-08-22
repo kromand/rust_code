@@ -1,7 +1,7 @@
 use macroquad::prelude::*;
 use macroquad::ui::{Skin, Ui, hash, root_ui, widgets};
 
-use crate::defines::{Entity, GridTile, InfrastructureEnum, TILE_SIZE};
+use crate::defines::{Entity, GridTile, InfrastructureEnum, TILE_SIZE, UnitAction};
 use crate::game_assets::GameAssets;
 use crate::infrastructure::infstrt::InfrastructureContainer;
 use crate::map::terrain::TerrainGrid;
@@ -289,7 +289,13 @@ fn render_popup_unit_menu(
                 sorted_actions.sort();
                 for action in sorted_actions {
                     if ui.button(vec2(20.0, y_offset), action.to_string()) {
-                        unit.perform_action(action, terrain_grid, infr_container, grid_tile);
+                        if action == UnitAction::RangedAttack {
+                            // Enter targeting mode; the cursor tile is highlighted
+                            // while it stays within the unit's range.
+                            mouse.set_ranged_attack(grid_tile, unit.ranged_attack_range());
+                        } else {
+                            unit.perform_action(action, terrain_grid, infr_container, grid_tile);
+                        }
                         mouse.set_popup_visible(false);
                         *selection = MenuType::Main;
                     }

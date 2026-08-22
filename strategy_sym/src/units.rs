@@ -175,7 +175,7 @@ pub mod unit {
                 TextureType::Moving => self.movement.get_unit_texture(unit_type, frame),
                 TextureType::Damage => self.damage.get_unit_texture(unit_type, frame),
                 _ => {
-                    dbg!(texture_type);
+                    tracing::error!("unexpected texture_type: {:?}", texture_type);
                     unreachable!()
                 }
             }
@@ -228,7 +228,7 @@ pub mod unit {
                     &self.attack_heli_txtr[frame % self.attack_heli_txtr.len()]
                 }
                 _ => {
-                    dbg!(unit_type);
+                    tracing::error!("unhandled unit_type in get_unit_texture: {:?}", unit_type);
                     unreachable!()
                 }
             }
@@ -518,6 +518,15 @@ pub mod unit {
             self.actions
                 .as_ref()
                 .is_some_and(|set| set.contains(&action))
+        }
+        /// Maximum Chebyshev distance this unit can strike with a ranged attack.
+        /// Zero for units without a ranged attack.
+        pub fn ranged_attack_range(self: &UnitInfo) -> usize {
+            match self.unit_type {
+                UnitTilesEnum::Artillery => 3,
+                UnitTilesEnum::RocketArty => 4,
+                _ => 0,
+            }
         }
         /// Central dispatch for special unit actions. Returns `false` if the unit
         /// isn't allowed the action; otherwise routes to the matching handler.

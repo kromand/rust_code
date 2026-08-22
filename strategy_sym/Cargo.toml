@@ -18,3 +18,9 @@ tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 axum = "0.8.9"
 tokio-util = "0.7.18"
 
+# Optimize dependencies (PNG decoders, macroquad, etc.) even in dev builds so
+# asset loading is fast, while keeping our own crate unoptimized for quick
+# rebuilds and clean debug info.
+[profile.dev.package."*"]
+opt-level = 3
+

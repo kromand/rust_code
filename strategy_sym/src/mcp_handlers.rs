@@ -58,12 +58,11 @@ pub fn mcp_move_unit(
             ))
         }
         MoveResult::UnitDestroyed => {
-            if let Some(mut dead_unit) = enemy_units.pop_unit(start_tile, unit_id) {
-                if unit_has_destruction_animation(dead_unit.unit_type) {
+            if let Some(mut dead_unit) = enemy_units.pop_unit(start_tile, unit_id) 
+                && unit_has_destruction_animation(dead_unit.unit_type) {
                     dead_unit.location = target;
                     dead_unit.start_destruction();
                     destroyed_units.push(dead_unit);
-                }
             }
             refresh_contested_tile(start_tile, player_units, enemy_units, contested_tiles);
             Ok(format!(

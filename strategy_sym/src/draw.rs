@@ -2,6 +2,7 @@ use crate::defines::*;
 use crate::game_assets::GameAssets;
 use crate::infrastructure::infstrt::*;
 use crate::map::terrain::*;
+use crate::mouse::MouseTracker;
 use crate::units::unit::*;
 use macroquad::prelude::*;
 
@@ -134,7 +135,8 @@ pub async fn draw_visible_enemy_units(game_assets: &mut GameAssets) {
                 let players_present = player_units
                     .units_by_tile
                     .get(&loc)
-                    .map_or(false, |s| !s.units.is_empty());
+                    .is_some_and( |s| !s.units.is_empty());
+                
                 let texture = textures.units.get_texture(
                     unit.unit_type,
                     health_to_texture_type(unit.health / unit.max_health),
@@ -150,6 +152,30 @@ pub async fn draw_visible_enemy_units(game_assets: &mut GameAssets) {
 // ---------------------------------------------------------------------------
 // Tile-level primitives
 // ---------------------------------------------------------------------------
+
+/// Draws a translucent overlay + outline over `tile` to mark it as targeted.
+pub fn draw_tile_highlight(tile: GridTile) {
+    let x = tile.col as f32 * TILE_SIZE.0;
+    let y = tile.row as f32 * TILE_SIZE.1;
+    draw_rectangle(x, y, TILE_SIZE.0, TILE_SIZE.1, Color::new(1.0, 0.0, 0.0, 0.35));
+    draw_rectangle_lines(x, y, TILE_SIZE.0, TILE_SIZE.1, 2.0, RED);
+}
+
+/// While ranged-attack targeting is active, highlights the cursor tile as long
+/// as it stays within the unit's range. Escape cancels targeting.
+pub fn draw_ranged_attack_highlight(mouse: &mut MouseTracker) {
+    if is_key_pressed(KeyCode::Escape) {
+        mouse.clear_ranged_attack();
+    }
+    if let Some((origin, range)) = mouse.ranged_attack() {
+        let cursor = mouse.get_cursor_pointed_tile();
+        let dr = (cursor.row as i32 - origin.row as i32).unsigned_abs() as usize;
+        let dc = (cursor.col as i32 - origin.col as i32).unsigned_abs() as usize;
+        if dr.max(dc) <= range {
+            draw_tile_highlight(cursor);
+        }
+    }
+}
 
 pub async fn paint_tile(tile: GridTile, size: (f32, f32), texture: &Texture2D, flip: bool) {
     draw_texture_ex(

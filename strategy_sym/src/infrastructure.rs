@@ -17,7 +17,7 @@ pub mod infstrt {
     impl TextureContainer {
         pub fn get_repeat_seq_it(len: usize, repeat: usize) -> impl Iterator<Item = usize> {
             (0..len.to_owned())
-                .flat_map(move |n| std::iter::repeat(n).take(repeat))
+                .flat_map(move |n| std::iter::repeat_n(n,repeat))
                 .cycle()
         }
 
@@ -100,7 +100,7 @@ pub mod infstrt {
             self: &mut InfrastructureTextures,
             i_type: InfrastructureEnum,
         ) -> &Texture2D {
-            &self.infra_textures[i_type as usize].get_next_texture(i_type)
+            self.infra_textures[i_type as usize].get_next_texture(i_type)
         }
     }
 

@@ -13,6 +13,7 @@ pub struct MouseTracker {
     popup_position_changed: bool,
     popup_id: Option<u64>,
     popup_bounds: Option<(f32, f32, f32, f32)>, // (x, y, width, height)
+    ranged_attack: Option<(GridTile, usize)>,   // (origin tile, max range) while targeting
 }
 
 impl MouseTracker {
@@ -26,6 +27,7 @@ impl MouseTracker {
             popup_position_changed: false,
             popup_id: None,
             popup_bounds: None,
+            ranged_attack: None,
         }
     }
 
@@ -35,21 +37,19 @@ impl MouseTracker {
 
         if is_mouse_button_down(MouseButton::Left) {
             // Check if click is outside popup bounds and hide it
-            if self.show_popup {
-                if let Some((px, py, pw, ph)) = self.popup_bounds {
-                    if mouse_x < px || mouse_x > px + pw || mouse_y < py || mouse_y > py + ph {
-                        self.show_popup = false;
-                    }
-                }
+            if self.show_popup
+                && let Some((px, py, pw, ph)) = self.popup_bounds
+                && (mouse_x < px || mouse_x > px + pw || mouse_y < py || mouse_y > py + ph)
+            {
+                self.show_popup = false;
             }
 
-            if let Some(u) = units.get_units_at(mouse_tile) {
-                if !u.is_empty() && self.start_cursor_position.is_none() {
+            if let Some(u) = units.get_units_at(mouse_tile) 
+                && !u.is_empty() && self.start_cursor_position.is_none() {
                     //get first unit id from the tile and set it as selected, also set start cursor position for dragging
                     self.unitid = *u.iter().next().unwrap().0;
                     self.end_cursor_position = None;
                     self.start_cursor_position = Some((mouse_x, mouse_y));
-                }
             }
         } else {
             if self.end_cursor_position.is_none() {
@@ -66,6 +66,8 @@ impl MouseTracker {
                 !self.show_popup || self.popup_position != new_popup_position;
             self.popup_position = new_popup_position;
             self.show_popup = true;
+            // Opening the menu cancels any in-progress ranged targeting.
+            self.ranged_attack = None;
         }
         if is_mouse_button_down(MouseButton::Middle) {}
     }
@@ -115,6 +117,21 @@ impl MouseTracker {
     pub fn get_cursor_pointed_tile(self: &MouseTracker) -> GridTile {
         let (mouse_x, mouse_y) = mouse_position();
         utils::conv::pixel_offset_to_grid((mouse_x, mouse_y))
+    }
+
+    /// Begins ranged-attack targeting from `origin` with the given max range.
+    pub fn set_ranged_attack(self: &mut MouseTracker, origin: GridTile, range: usize) {
+        self.ranged_attack = Some((origin, range));
+    }
+
+    /// Cancels any in-progress ranged-attack targeting.
+    pub fn clear_ranged_attack(self: &mut MouseTracker) {
+        self.ranged_attack = None;
+    }
+
+    /// The active ranged-attack targeting as `(origin tile, max range)`, if any.
+    pub fn ranged_attack(self: &MouseTracker) -> Option<(GridTile, usize)> {
+        self.ranged_attack
     }
 
     pub fn get_new_tile_if_moved(self: &MouseTracker) -> Option<GridTile> {

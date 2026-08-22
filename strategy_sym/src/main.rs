@@ -63,9 +63,58 @@ fn init_logging() {
         .init();
 }
 
+/// Accumulates per-frame work times (the loop body, excluding the vsync wait in
+/// `next_frame`) and logs an aggregate once per second: how many frames were
+/// sampled, plus the average, minimum and maximum work time in milliseconds.
+struct FrameProfiler {
+    window_start: f64,
+    samples: u32,
+    sum_ms: f64,
+    min_ms: f64,
+    max_ms: f64,
+}
+
+impl FrameProfiler {
+    fn new() -> FrameProfiler {
+        FrameProfiler {
+            window_start: get_time(),
+            samples: 0,
+            sum_ms: 0.0,
+            min_ms: f64::MAX,
+            max_ms: 0.0,
+        }
+    }
+
+    /// Records one frame's work time (ms). Once a second has elapsed since the
+    /// window opened, logs the window's stats and resets.
+    fn record(&mut self, work_ms: f64) {
+        self.samples += 1;
+        self.sum_ms += work_ms;
+        self.min_ms = self.min_ms.min(work_ms);
+        self.max_ms = self.max_ms.max(work_ms);
+
+        let now = get_time();
+        if now - self.window_start >= 1.0 {
+            tracing::info!(
+                "main loop work_ms: samples={} avg={:.3} min={:.3} max={:.3}",
+                self.samples,
+                self.sum_ms / self.samples as f64,
+                self.min_ms,
+                self.max_ms
+            );
+            self.window_start = now;
+            self.samples = 0;
+            self.sum_ms = 0.0;
+            self.min_ms = f64::MAX;
+            self.max_ms = 0.0;
+        }
+    }
+}
+
 #[macroquad::main("Strategy")]
 async fn main() {
     init_logging();
+    tracing::warn!(">>>>>>>>>>>>>>>>>>>>>> Strategy application starting <<<<<<<<<<<<<<<<<<<<<<");
 
     let mut state = menu::GameState::Menu;
 
@@ -90,8 +139,11 @@ async fn main() {
 
     let mut menu_content: MenuType = MenuType::Main;
     let mut last_combat_time = get_time();
+    let mut frame_profiler = FrameProfiler::new();
 
+    tracing::warn!(">>>>>>>>>>>>>>>>>>>>>> Entering main state loop <<<<<<<<<<<<<<<<<<<<<<");
     loop {
+        let frame_start = get_time();
         match state {
             menu::GameState::Menu => {
                 menu::show_menu(&mut state).await;
@@ -130,9 +182,14 @@ async fn main() {
                 draw_visible_enemy_units(&mut game_assets).await;
                 draw_destroyed_units(&mut game_assets).await;
 
+                draw_ranged_attack_highlight(&mut mouse);
+
                 menu::show_popup_menu(&mut mouse, &mut game_assets, &mut menu_content);
             }
         }
+
+        // Measure the loop body's work time (before the vsync wait below).
+        frame_profiler.record((get_time() - frame_start) * 1000.0);
 
         next_frame().await
     }

@@ -63,7 +63,7 @@ pub fn refresh_contested_tile(
     
     if has_player && has_enemy {
         contested_tiles.insert(tile);
-        dbg!("Added contested tile at ({},{})", tile.row, tile.col);
+        tracing::info!("Added contested tile at ({},{})", tile.row, tile.col);
     } else {
         contested_tiles.remove(&tile);
     }
@@ -116,7 +116,7 @@ pub fn resolve_combat(game_assets: &mut GameAssets) {
             tile.row, tile.col, player_slice.len(), enemy_slice.len()
         );
         let (dmg_to_players, dmg_to_ai) = da.resolve_combat(&player_slice, &enemy_slice);
-        dbg!(
+        tracing::info!(
             "Damage to players: {:.1}, damage to enemy: {:.1}",
             dmg_to_players,
             dmg_to_ai

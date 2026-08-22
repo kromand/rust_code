@@ -127,7 +127,7 @@ pub mod terrain {
                 self.map[tile.row as usize][tile.col as usize]
                     .infrastruct
                     .get(&infra_type)
-                    .map_or(false, |obj| obj.borrow().owner == owner)
+                    .is_some_and( |obj| obj.borrow().owner == owner)
             } else {
                 false
             }
@@ -140,28 +140,22 @@ pub mod terrain {
         ) -> bool {
             if (tile.row as usize) < self.map.len()
                 && (tile.col as usize) < self.map[tile.row as usize].len()
-            {
-                if let Some(factory) = self.map[tile.row as usize][tile.col as usize]
+                && let Some(factory) = self.map[tile.row as usize][tile.col as usize]
                     .infrastruct
                     .get(&InfrastructureEnum::Factory)
-                {
-                    if let Some(unit_production) = factory.borrow_mut().unit_production.as_mut()
-                    {
-                        unit_production.add_to_queue(unit_type);
-                        return true;
-                    }
-                }
+                && let Some(unit_production) = factory.borrow_mut().unit_production.as_mut()
+            {
+                    unit_production.add_to_queue(unit_type);
+                    return true;
             }
             false
         }
 
         pub fn get_factory_allowed_units(&self, tile: GridTile) -> Vec<UnitTilesEnum> {
-            if let Some(tile_info) = self.get_tile_info(tile) {
-                if let Some(factory) = tile_info.infrastruct.get(&InfrastructureEnum::Factory) {
-                    if let Some(unit_prod) = &factory.borrow().unit_production {
+            if let Some(tile_info) = self.get_tile_info(tile) 
+                && let Some(factory) = tile_info.infrastruct.get(&InfrastructureEnum::Factory) 
+                && let Some(unit_prod) = &factory.borrow().unit_production {
                         return unit_prod.allowed_units.iter().cloned().collect();
-                    }
-                }
             }
             Vec::new()
         }
@@ -173,28 +167,22 @@ pub mod terrain {
         ) -> bool {
             if (tile.row as usize) < self.map.len()
                 && (tile.col as usize) < self.map[tile.row as usize].len()
-            {
-                if let Some(airfield) = self.map[tile.row as usize][tile.col as usize]
+                && let Some(airfield) = self.map[tile.row as usize][tile.col as usize]
                     .infrastruct
                     .get(&InfrastructureEnum::Airfield)
-                {
-                    if let Some(unit_production) = airfield.borrow_mut().unit_production.as_mut()
-                    {
-                        unit_production.add_to_queue(unit_type);
-                        return true;
-                    }
-                }
+                && let Some(unit_production) = airfield.borrow_mut().unit_production.as_mut()
+            {
+                    unit_production.add_to_queue(unit_type);
+                    return true;
             }
             false
         }
 
         pub fn get_airfield_allowed_units(&self, tile: GridTile) -> Vec<UnitTilesEnum> {
-            if let Some(tile_info) = self.get_tile_info(tile) {
-                if let Some(airfield) = tile_info.infrastruct.get(&InfrastructureEnum::Airfield) {
-                    if let Some(unit_prod) = &airfield.borrow().unit_production {
+            if let Some(tile_info) = self.get_tile_info(tile) 
+                && let Some(airfield) = tile_info.infrastruct.get(&InfrastructureEnum::Airfield) 
+                && let Some(unit_prod) = &airfield.borrow().unit_production {
                         return unit_prod.allowed_units.iter().cloned().collect();
-                    }
-                }
             }
             Vec::new()
         }
@@ -314,10 +302,7 @@ pub mod terrain {
                 }
             }
             for unit_id in detected_units {
-                let tile_entry = self
-                    .visible_units_per_tile
-                    .entry(center)
-                    .or_insert(HashSet::<usize>::new());
+                let tile_entry = self.visible_units_per_tile.entry(center).or_default();
                 tile_entry.insert(unit_id);
             }
         }
@@ -329,21 +314,15 @@ pub mod terrain {
             detect_possiblity: usize,
             player_type: Entity,
         ) {
-            let min_row = if distance <= center.row {
-                center.row - distance
-            } else {
-                0
-            };
+            let min_row = center.row.saturating_sub(distance);
+
             let max_row = if center.row + distance >= (self.map.len() - 1) as u16 {
                 (self.map.len() - 1) as u16
             } else {
                 center.row + distance
             };
-            let min_col = if distance <= center.col {
-                center.col - distance
-            } else {
-                0
-            };
+            
+            let min_col = center.col.saturating_sub(distance);
             let max_col =
                 if center.col + distance > (self.map[center.row as usize].len() - 1) as u16 {
                     (self.map.len() - 1) as u16
