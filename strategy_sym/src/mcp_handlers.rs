@@ -4,8 +4,7 @@ use crate::game_assets::GameAssets;
 use crate::infrastructure::infstrt::InfrastructureContainer;
 use crate::map::terrain::TerrainGrid;
 use crate::mcp_server::McpCommand;
-use crate::units::unit::{UnitInfo, UnitsContainer, unit_has_destruction_animation};
-use std::collections::HashSet;
+use crate::units::unit::{UnitsContainer, unit_has_destruction_animation};
 use tokio::sync::oneshot;
 
 // ---------------------------------------------------------------------------
@@ -18,12 +17,16 @@ use tokio::sync::oneshot;
 pub fn mcp_move_unit(
     unit_id: usize,
     target: GridTile,
-    enemy_units: &mut UnitsContainer,
-    player_units: &UnitsContainer,
-    map: &mut TerrainGrid,
-    destroyed_units: &mut Vec<UnitInfo>,
-    contested_tiles: &mut HashSet<GridTile>,
+    game_assets: &mut GameAssets,
 ) -> Result<String, String> {
+    let GameAssets {
+        enemy_units_map: enemy_units,
+        player_units_map: player_units,
+        map,
+        destroyed_units,
+        contested_tiles,
+        ..
+    } = game_assets;
     let start_tile = match enemy_units.find_unit_tile(unit_id) {
         Some(t) => t,
         None => return Err(format!("Unit {} not found", unit_id)),
@@ -228,56 +231,31 @@ pub fn process_mcp_commands(
     cmd_rx: &std::sync::mpsc::Receiver<McpCommand>,
     game_assets: &mut GameAssets,
 ) {
-    let GameAssets {
-        player_units_map: player_units,
-        enemy_units_map: enemy_units,
-        map,
-        destroyed_units,
-        contested_tiles,
-        infr_container,
-        ..
-    } = game_assets;
     while let Ok(cmd) = cmd_rx.try_recv() {
         match cmd {
-            McpCommand::MoveUnit {
-                unit_id,
-                target,
-                resp,
+            McpCommand::MoveUnit {unit_id,target,resp,
             } => {
-                tracing::info!(
-                    "MCP MoveUnit: unit={} target=({},{})",
-                    unit_id,
-                    target.row,
-                    target.col
-                );
-                reply(
-                    resp,
-                    mcp_move_unit(
-                        unit_id,
-                        target,
-                        enemy_units,
-                        player_units,
-                        map,
-                        destroyed_units,
-                        contested_tiles,
-                    ),
-                );
+                tracing::info!("MCP MoveUnit: unit={} target=({},{})",unit_id,target.row,target.col);
+                reply(resp, mcp_move_unit(unit_id, target, game_assets));
             }
             McpCommand::ListMyUnits { resp } => {
                 tracing::info!("MCP ListMyUnits");
-                let _ = resp.send(mcp_list_my_units(enemy_units));
+                let _ = resp.send(mcp_list_my_units(&game_assets.enemy_units_map));
             }
             McpCommand::ListMyInfrastructure { resp } => {
                 tracing::info!("MCP ListMyInfrastructure");
-                let _ = resp.send(mcp_list_my_infrastructure(infr_container));
+                let _ = resp.send(mcp_list_my_infrastructure(&game_assets.infr_container));
             }
             McpCommand::ListVisibleEnemyUnits { resp } => {
                 tracing::info!("MCP ListVisibleEnemyUnits");
-                let _ = resp.send(mcp_list_visible_enemies(map, player_units));
+                let _ = resp.send(mcp_list_visible_enemies(
+                    &game_assets.map,
+                    &game_assets.player_units_map,
+                ));
             }
             McpCommand::TileInfo { tile, resp } => {
                 tracing::info!("MCP TileInfo: tile=({},{})", tile.row, tile.col);
-                reply(resp, mcp_tile_info(tile, map));
+                reply(resp, mcp_tile_info(tile, &game_assets.map));
             }
             McpCommand::EnqueueUnit {
                 tile,
@@ -290,7 +268,7 @@ pub fn process_mcp_commands(
                     tile.col,
                     unit_type
                 );
-                reply(resp, mcp_enqueue_unit(tile, &unit_type, map));
+                reply(resp, mcp_enqueue_unit(tile, &unit_type, &mut game_assets.map));
             }
             McpCommand::GetMap { resp } => {
                 tracing::info!("MCP GetMap");

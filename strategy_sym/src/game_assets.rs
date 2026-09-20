@@ -53,11 +53,13 @@ impl GameAssets {
         }
 
         let enemy_units_map = init_enemy_units(&mut id_gen);
-        for (_, stack) in &enemy_units_map.units_by_tile {
-            for (unit_id, unit) in &stack.units {
+        enemy_units_map
+            .units_by_tile
+            .values()
+            .flat_map(|stack| &stack.units)
+            .for_each(|(unit_id, unit)| {
                 map.add_hidden_unit(*unit_id, unit.location, Entity::Enemy);
-            }
-        }
+            });
 
         let textures = Textures::new().await.expect("Failed to load textures");
 
