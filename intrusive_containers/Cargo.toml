@@ -1,0 +1,21 @@
+[package]
+name = "intrusive_containers"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+flat_map = "0.0.10"
+intrusive-collections = "0.10.3"
+random_get = { path = "../random_get" }
+
+[dev-dependencies]
+criterion = "0.5"
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = "symbols"
+debug = false
+incremental = false
